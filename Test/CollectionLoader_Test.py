@@ -1,11 +1,14 @@
 import unittest
 import pandas as pd
-from Utils.CollectionLoader import CollectionLoader  # Ensure this matches the actual module name
+from src.Utils.CollectionLoader import CollectionLoader
 
+# Testing class for the collection loader
 class CollectionLoader_Test(unittest.TestCase):
-    def setUp(self):
-        self.processor = CollectionLoader(chunk_size=100000)
 
+    def setUp(self):
+        self.processor = CollectionLoader()
+
+    # Tests the full collection loader method
     def test_process_chunks(self):
         df = self.processor.process_chunks()
         self.assertIsInstance(df, pd.DataFrame)
@@ -13,17 +16,13 @@ class CollectionLoader_Test(unittest.TestCase):
         print("Some lines:")
         print(df.shape)
 
+    # Tests the partial collection loader method
     def test_sample_lines(self):
         sampled_df = self.processor.sample_lines(num_lines=10)
-        # Debug prints
         print("Sampled DataFrame:")
         print(sampled_df)
         print("Number of sampled rows:", len(sampled_df))
-
-        # Check the number of sampled rows
         self.assertEqual(len(sampled_df), 10)
-
-        # Check the columns
         expected_columns = set(pd.read_csv(self.processor.file_path, sep='\t', nrows=1).columns)
         print("Expected columns:", expected_columns)
         print("Sampled DataFrame columns:", set(sampled_df.columns))

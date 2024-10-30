@@ -1,29 +1,30 @@
 import re
+from typing import List
 import spacy
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 
+# Preprocessing class
 class Preprocessing:
-    def __init__(self):
+    def __init__(self) -> None:
         self.stop_words = set(stopwords.words('english'))
         self.stemmer = PorterStemmer()
         self.nlp = spacy.load("en_core_web_sm")
 
+    # Method to remove non-alphanumeric characters
     @staticmethod
-    def clean_text(text):
+    def clean_text(text: str) -> str:
         if not text:
             return ""
-        # Remove non-alphanumeric characters
         text = re.sub(r'\W', ' ', text)
         text = re.sub(r'_', ' ', text)
-        # Convert to lowercase
         text = text.lower()
         return text
 
-    def tokenize(self, text):
+    # Method to tokenize the text, using a NER procedure
+    def tokenize(self, text: str) -> List[str]:
         if not text:
             return []
-        # Tokenize the text
         doc = self.nlp(text)
         tokens = []
         for token in doc:
@@ -36,23 +37,23 @@ class Preprocessing:
                 tokens.append(token.text)
         return tokens
 
-    def remove_stopwords(self, tokens):
+    # Method to remove stopwords
+    def remove_stopwords(self, tokens: List[str]) -> List[str]:
         if not tokens:
             return []
-        # Remove stop words
         filtered_tokens = [word for word in tokens if word not in self.stop_words]
         return filtered_tokens
 
-    def stem_tokens(self, tokens):
+    # Method to stem the tokens
+    def stem_tokens(self, tokens: List[str]) -> List[str]:
         if not tokens:
             return []
-        # Stem the tokens
         stemmed_tokens = [self.stemmer.stem(word) for word in tokens]
         return stemmed_tokens
 
-    def preprocess(self, text):
+    # Full pipeline method
+    def preprocess(self, text: str) -> List[str]:
         try:
-            # Full preprocessing pipeline
             text = self.clean_text(text)
             tokens = self.tokenize(text)
             tokens = self.remove_stopwords(tokens)
