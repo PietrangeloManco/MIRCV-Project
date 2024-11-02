@@ -1,16 +1,26 @@
-# This is a sample Python script.
+from multiprocessing import get_context, cpu_count
+import pandas as pd
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+def process_chunk(chunk):
+    # Dummy processing function
+    return len(chunk)
 
+def main():
+    ctx = get_context("spawn")
+    n_cores = cpu_count() - 1
+    chunk_size = 1000
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}.')  # Press Ctrl+F8 to toggle the breakpoint.
+    # Create a dummy DataFrame
+    data = {'text': ['doc1', 'doc2', 'doc3'], 'index': [1, 2, 3]}
+    df = pd.DataFrame(data)
 
+    # Split DataFrame into chunks
+    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+    with ctx.Pool(processes=n_cores) as pool:
+        results = pool.map(process_chunk, chunks)
+        print(results)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    main()
+

@@ -1,64 +1,115 @@
 import re
-from typing import List
+from typing import List, Union
 import spacy
+import pandas as pd
+from functools import lru_cache
+from multiprocessing import Pool, cpu_count
+from nltk import PorterStemmer
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
+import logging
 
-# Preprocessing class
 class Preprocessing:
-    def __init__(self) -> None:
+    def __init__(self, use_cache: bool = True) -> None:
+        # Lazy load NLP model to improve startup time
+        self._nlp = None
         self.stop_words = set(stopwords.words('english'))
         self.stemmer = PorterStemmer()
-        self.nlp = spacy.load("en_core_web_sm")
+        self.use_cache = use_cache
 
-    # Method to remove non-alphanumeric characters
+    @property
+    def nlp(self):
+        # Lazy loading of spaCy model
+        if self._nlp is None:
+            self._nlp = spacy.load("en_core_web_sm")
+        return self._nlp
+
     @staticmethod
+    @lru_cache(maxsize=1000)
     def clean_text(text: str) -> str:
         if not text:
             return ""
+        # Compile regex patterns once
         text = re.sub(r'\W', ' ', text)
         text = re.sub(r'_', ' ', text)
-        text = text.lower()
-        return text
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip().lower()
 
-    # Method to tokenize the text, using a NER procedure
     def tokenize(self, text: str) -> List[str]:
         if not text:
             return []
+
+        # Use spaCy's built-in NER more efficiently
         doc = self.nlp(text)
         tokens = []
+        current_entity = []
+
         for token in doc:
             if token.ent_type_ in ["GPE", "ORG", "PERSON"]:
-                if token.ent_iob_ == 'B':  # Beginning of an entity
-                    tokens.append(token.text)
-                else:
-                    tokens[-1] += ' ' + token.text
+                current_entity.append(token.text)
             else:
+                # Add any accumulated entity first
+                if current_entity:
+                    tokens.append(' '.join(current_entity))
+                    current_entity = []
+
+                # Add current token
                 tokens.append(token.text)
+
+        # Add last entity if exists
+        if current_entity:
+            tokens.append(' '.join(current_entity))
+
         return tokens
 
-    # Method to remove stopwords
     def remove_stopwords(self, tokens: List[str]) -> List[str]:
-        if not tokens:
-            return []
-        filtered_tokens = [word for word in tokens if word not in self.stop_words]
-        return filtered_tokens
+        return [word for word in tokens if word not in self.stop_words]
 
-    # Method to stem the tokens
     def stem_tokens(self, tokens: List[str]) -> List[str]:
-        if not tokens:
-            return []
-        stemmed_tokens = [self.stemmer.stem(word) for word in tokens]
-        return stemmed_tokens
+        return [self.stemmer.stem(word) for word in tokens]
 
-    # Full pipeline method
-    def preprocess(self, text: str) -> List[str]:
+    # Vectorized preprocessing method
+    def vectorized_preprocess(self,
+                              texts: Union[pd.Series, List[str]],
+                              stopwords_flag: bool = True,
+                              stem_flag: bool = True) -> List[List[str]]:
+        # Parallel processing for large datasets
+        num_cores = cpu_count() - 1
+
+        # Convert to list if it's a pandas Series
+        if isinstance(texts, pd.Series):
+            texts = texts.tolist()
+
+        # Use multiprocessing for large datasets
+        with Pool(num_cores) as pool:
+            # Parallel preprocessing
+            preprocessed = pool.starmap(
+                self._single_text_preprocess,
+                [(text, stopwords_flag, stem_flag) for text in texts]
+            )
+
+        return preprocessed
+
+    def _single_text_preprocess(self,
+                                text: str,
+                                stopwords_flag: bool = True,
+                                stem_flag: bool = True) -> List[str]:
         try:
+            # Reuse existing preprocessing steps
             text = self.clean_text(text)
             tokens = self.tokenize(text)
-            tokens = self.remove_stopwords(tokens)
-            tokens = self.stem_tokens(tokens)
+
+            if stopwords_flag:
+                tokens = self.remove_stopwords(tokens)
+
+            # Process tokens with spaCy to get POS tags and lemmas
+            doc = self.nlp(" ".join(tokens))
+            tokens = [token.lemma_ for token in doc]
+
+            if stem_flag:
+                tokens = self.stem_tokens(tokens)
+
             return tokens
         except Exception as e:
-            print(f"Error during preprocessing: {e}")
+            # Log the error instead of printing
+            logging.error(f"Error during preprocessing: {e}")
             return []
