@@ -20,6 +20,7 @@ class CollectionLoader:
     def get_total_docs(self) -> int:
         """Get total number of documents in collection"""
         if self._total_docs is None:
+            print("Computing documents number...")
             # Count lines efficiently without loading the file
             with gzip.open(self.file_path, 'rt', encoding='utf-8') as file:
                 next(file)  # Skip header
@@ -81,6 +82,7 @@ class CollectionLoader:
         Returns:
             DataFrame: Sampled documents
         """
+        self._total_docs = num_lines
         with gzip.open(self.file_path, 'rt', encoding='utf-8') as f:
             next(f)  # Skip header
             reservoir = []

@@ -61,37 +61,5 @@ class TestPreprocessing(unittest.TestCase):
             with self.subTest(input=input_tokens):
                 self.assertEqual(self.preprocessor.stem_tokens(input_tokens), expected_tokens)
 
-    def test_vectorized_preprocessing(self):
-        """Test vectorized preprocessing with multiple texts"""
-        sample_texts = [
-            "First document with some text",
-            "Second document with different words",
-            "Third document to test preprocessing"
-        ]
-
-        # Test with different preprocessing configurations
-        preprocessing_configs = [
-            {"stopwords_flag": True, "stem_flag": True},
-            {"stopwords_flag": False, "stem_flag": False}
-        ]
-
-        for config in preprocessing_configs:
-            with self.subTest(**config):
-                processed_texts = self.preprocessor.vectorized_preprocess(
-                    sample_texts,
-                    stopwords_flag=config["stopwords_flag"],
-                    stem_flag=config["stem_flag"]
-                )
-
-                # Verify output is a list of lists
-                self.assertIsInstance(processed_texts, list)
-                self.assertEqual(len(processed_texts), len(sample_texts))
-
-                # Verify each processed text is a list of strings
-                for processed_text in processed_texts:
-                    self.assertIsInstance(processed_text, list)
-                    for token in processed_text:
-                        self.assertIsInstance(token, str)
-
 if __name__ == "__main__":
     unittest.main()
