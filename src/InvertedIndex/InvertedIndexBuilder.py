@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import gc
 from tqdm import tqdm
+
 from InvertedIndex.InvertedIndex import InvertedIndex
-from InvertedIndex.Posting import Posting
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
 
@@ -152,7 +152,7 @@ class InvertedIndexBuilder:
 
 
 
-    def _merge_two_indices(self, index1_path: str, index2_path: str, memory_efficient: bool = False) -> InvertedIndex:
+    def merge_two_indices(self, index1_path: str, index2_path: str, memory_efficient: bool = False) -> InvertedIndex:
         """
         Merges two inverted indices using either a fast in-memory approach or a memory-efficient streaming approach.
 
@@ -227,56 +227,41 @@ class InvertedIndexBuilder:
 
     @staticmethod
     def _merge_two_indices_streaming(index1_path: str, index2_path: str) -> 'InvertedIndex':
-        """
-        Memory-efficient streaming implementation that merges two inverted indices.
-        Uses text file format instead of pickle for better reliability and memory usage.
-        """
+        """Memory-efficient streaming merge of two indexes saved in text format."""
         final_index = InvertedIndex()
 
-        # Helper function to read terms and postings from a file
-        def read_index_file(filename: str):
-            terms_dict = {}
-            with open(filename, "r") as f:
-                for line in f:
-                    parts = line.strip().split()
-                    if not parts:
-                        continue
-                    term = parts[0]
-                    postings = []
-                    for posting_data in parts[1:]:
-                        doc_id, *payload = posting_data.split(":")
-                        payload = ":".join(payload) if payload else None
-                        postings.append(Posting(int(doc_id), payload))
-                    terms_dict[term] = postings
-            return terms_dict
-
-        # First pass: Collect terms from both indices
-        print("Reading and merging indices...")
-
-        # Read both indices
-        index1_terms = read_index_file(index1_path)
-        index2_terms = read_index_file(index2_path)
-
-        # Get all unique terms
-        all_terms = sorted(set(index1_terms.keys()).union(set(index2_terms.keys())))
+        # First pass: Collect all unique terms
+        print("First pass: Collecting terms")
+        terms1 = InvertedIndex.read_index_terms(index1_path)
+        terms2 = InvertedIndex.read_index_terms(index2_path)
+        all_terms = sorted(terms1.union(terms2))
         print(f"Found {len(all_terms)} unique terms")
 
-        # Merge postings for each term
-        for term in all_terms:
-            postings1 = index1_terms.get(term, [])
-            postings2 = index2_terms.get(term, [])
+        # Second pass: Process terms in batches
+        batch_size = 80000
+        for i in range(0, len(all_terms), batch_size):
+            batch_terms = set(all_terms[i:i + batch_size])
+            print(f"Processing batch {i // batch_size + 1} of {(len(all_terms) + batch_size - 1) // batch_size}")
 
-            # Create a dictionary of doc_ids for efficient lookup
-            doc_ids1 = {p.doc_id: p for p in postings1}
+            # Process postings from the first index
+            index1_batch = InvertedIndex.read_index_postings(index1_path, batch_terms)
 
-            # Add unique postings from index2
-            unique_postings2 = [p for p in postings2 if p.doc_id not in doc_ids1]
+            # Process postings from the second index and merge
+            index2_batch = InvertedIndex.read_index_postings(index2_path, batch_terms)
+            for term in batch_terms:
+                postings1 = index1_batch.get(term, [])
+                postings2 = index2_batch.get(term, [])
 
-            # Combine postings and add to final index
-            final_postings = list(doc_ids1.values()) + unique_postings2
-            for posting in final_postings:
-                final_index.add_posting(term, posting.doc_id, posting.payload)
+                doc_ids1 = {p.doc_id: p for p in postings1}
+                unique_postings2 = [p for p in postings2 if p.doc_id not in doc_ids1]
 
+                final_postings = list(doc_ids1.values()) + unique_postings2
+                if final_postings:
+                    final_index.add_postings(term, iter(final_postings))
+
+            del index1_batch
+            del index2_batch
+            gc.collect()
         return final_index
 
     def get_index(self) -> InvertedIndex:

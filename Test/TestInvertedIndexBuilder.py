@@ -102,7 +102,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             log_merge_operation(pair_first_level, "First Level")
 
             # Merge pair using hybrid method
-            temp_index = self.index_builder._merge_two_indices(
+            temp_index = self.index_builder.merge_two_indices(
                 index1_path=pair_first_level[0],
                 index2_path=pair_first_level[1]
             )
@@ -122,7 +122,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             log_merge_operation(pair_second_level, "Second Level")
 
             # Merge pair using hybrid method
-            temp_index = self.index_builder._merge_two_indices(
+            temp_index = self.index_builder.merge_two_indices(
                 index1_path=pair_second_level[0],
                 index2_path=pair_second_level[1]
             )
@@ -137,7 +137,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         log_merge_operation(second_level_outputs, "Final Level")
 
         # For the final merge, explicitly use memory-efficient method if files are large
-        final_index = self.index_builder._merge_two_indices(
+        final_index = self.index_builder.merge_two_indices(
             index1_path=second_level_outputs[0],
             index2_path=second_level_outputs[1],
             memory_efficient=True  # Force memory-efficient for final merge
@@ -187,7 +187,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         start_time = time.time()
 
         # Force memory-efficient merge
-        final_index = self.index_builder._merge_two_indices(
+        final_index = self.index_builder.merge_two_indices(
             index1_path=index1_path,
             index2_path=index2_path,
             memory_efficient=True  # Explicitly use streaming method
