@@ -133,9 +133,12 @@ class InvertedIndexBuilder:
     @staticmethod
     def _merge_compressed_postings(postings1: bytes, postings2: bytes) -> bytes:
         """Merge two lists of compressed postings."""
-        print(f"Attempting to decompress postings1 of length {len(postings1)}")
+        if not postings1:
+            return postings2
+        if not postings2:
+            return postings1
+
         doc_ids1 = CompressionTools.pfor_delta_decompress(postings1)
-        print(f"Attempting to decompress postings2 of length {len(postings2)}")
         doc_ids2 = CompressionTools.pfor_delta_decompress(postings2)
         merged_doc_ids = sorted(set(doc_ids1 + doc_ids2))
         return CompressionTools.pfor_delta_compress(merged_doc_ids)
