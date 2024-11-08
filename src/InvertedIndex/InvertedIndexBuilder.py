@@ -1,4 +1,5 @@
 import os
+import struct
 from typing import List
 import numpy as np
 import pandas as pd
@@ -64,26 +65,31 @@ class InvertedIndexBuilder:
             return InvertedIndex()
 
     def build_full_index(self) -> None:
-        """Build complete inverted index using chunk processing"""
+        """Build complete inverted index using chunk processing with compression."""
         try:
             total_docs = self.collection_loader.get_total_docs()
             total_chunks = (total_docs + self.chunk_size - 1) // self.chunk_size
 
             print(f"Processing {total_docs} documents in {total_chunks} chunks...")
 
-            # Create list to store chunk indices paths
+            # Create list to store paths of partial compressed indices
             partial_indices_paths: List[str] = []
             chunks = self.collection_loader.process_chunks(chunk_size=self.chunk_size)
-            # Process chunks directly into separate inverted indices
             counter = 0
+
             with tqdm(total=total_chunks) as pbar:
                 for chunk in chunks:
-                    # Process chunk using existing method
+                    # Process chunk into an inverted index
                     chunk_index = self.process_chunk(chunk)
                     counter += 1
-                    chunk_index_path = f'Index_{counter}'
-                    chunk_index.write_to_file(chunk_index_path)
+
+                    # Construct a filename for the compressed index
+                    chunk_index_path = f'Compressed_Index_{counter}.vb'
+                    chunk_index.write_compressed_index_to_file(chunk_index_path)
+
+                    # Store the path of the compressed index
                     partial_indices_paths.append(chunk_index_path)
+
                     # Free up memory after processing the chunk
                     del chunk
                     del chunk_index
@@ -91,19 +97,20 @@ class InvertedIndexBuilder:
                     pbar.update(1)
 
             print("Merging indices...")
-            # Create new inverted index for the final result
-            #self.inverted_index = self._merge_indices(partial_indices_paths)
+            # (Optional) Merge the partial compressed indices into a full index
+            # self.inverted_index = self._merge_indices(partial_indices_paths)
 
             # Print some statistics about the final index
             total_terms = len(self.inverted_index.get_terms())
             print(f"Index built successfully with {total_terms} unique terms")
 
-            # Delete the intermediate index files
-            self._delete_partial_indices(partial_indices_paths)
+            # Delete the intermediate compressed index files
+            #self._delete_partial_indices(partial_indices_paths)
 
         except Exception as e:
             print(f"Error building index: {str(e)}")
             raise
+
 
     @staticmethod
     def _delete_partial_indices(partial_indices_paths: List[str]) -> None:
@@ -226,7 +233,7 @@ class InvertedIndexBuilder:
         return final_index
 
     @staticmethod
-    def _merge_two_indices_streaming(index1_path: str, index2_path: str) -> 'InvertedIndex':
+    def _merge_two_indices_streaming(index1_path: str, index2_path: str) -> InvertedIndex:
         """Memory-efficient streaming merge of two indexes saved in text format."""
         final_index = InvertedIndex()
 
@@ -263,6 +270,172 @@ class InvertedIndexBuilder:
             del index2_batch
             gc.collect()
         return final_index
+
+    @staticmethod
+    def _merge_compressed_postings(postings1: List[bytes], postings2: List[bytes]) -> List[bytes]:
+        """Merges two lists of compressed postings and returns the merged compressed postings."""
+        if not postings1:
+            return postings2
+        if not postings2:
+            return postings1
+
+        # Ensure we're working with actual compressed data
+        valid_postings1 = [p for p in postings1 if isinstance(p, bytes) and len(p) > 0]
+        valid_postings2 = [p for p in postings2 if isinstance(p, bytes) and len(p) > 0]
+
+        # Decompress both posting lists
+        doc_ids1 = []
+        doc_ids2 = []
+
+        for posting in valid_postings1:
+            try:
+                doc_ids1.extend(InvertedIndex.pfor_delta_decompress(posting))
+            except Exception as e:
+                print(f"Error decompressing posting1: {e}")
+                continue
+
+        for posting in valid_postings2:
+            try:
+                doc_ids2.extend(InvertedIndex.pfor_delta_decompress(posting))
+            except Exception as e:
+                print(f"Error decompressing posting2: {e}")
+                continue
+
+        # Merge and sort document IDs
+        merged_doc_ids = sorted(set(doc_ids1).union(doc_ids2))
+
+        if not merged_doc_ids:
+            return []
+
+        # Compress the merged document IDs
+        try:
+            return [InvertedIndex.pfor_delta_compress(merged_doc_ids)]
+        except Exception as e:
+            print(f"Error compressing merged doc_ids: {e}")
+            return []
+
+    def merge_compressed_indices_in_memory(self, index1_path: str, index2_path: str) -> InvertedIndex:
+        """Merges two compressed indices while maintaining the defaultdict structure."""
+        # Load the compressed indexes into memory
+        print(f"Loading compressed index from {index1_path}")
+        index1 = InvertedIndex.load_compressed_index_to_memory(filename=index1_path)
+        print(f"Loading compressed index from {index2_path}")
+        index2 = InvertedIndex.load_compressed_index_to_memory(filename=index2_path)
+
+        merged_index = InvertedIndex()
+
+        # Process terms from both indices
+        all_terms = set(index1.get_terms()).union(index2.get_terms())
+        total_terms = len(all_terms)
+
+        print(f"Merging {total_terms} unique terms...")
+        for i, term in enumerate(sorted(all_terms), 1):
+            if i % 1000 == 0:
+                print(f"Progress: {i}/{total_terms} terms processed")
+
+            try:
+                # Get compressed postings
+                postings1 = index1.get_compressed_postings(term)
+                postings2 = index2.get_compressed_postings(term)
+
+                # Merge the postings
+                merged_postings = self._merge_compressed_postings(postings1, postings2)
+
+                if merged_postings:  # Only add if we have valid merged postings
+                    merged_index.add_compressed_postings(term, merged_postings)
+
+            except Exception as e:
+                print(f"Error processing term '{term}': {e}")
+                continue
+
+        # Cleanup
+        del index1
+        del index2
+        gc.collect()
+
+        return merged_index
+
+    def merge_and_write_compressed_indices(self, index1_path: str, index2_path: str, output_path: str) -> bool:
+        """Merges two compressed indices and writes the result to a file."""
+        try:
+            merged_index = self.merge_compressed_indices_in_memory(index1_path, index2_path)
+
+            # Verify the merged index has content before writing
+            if not merged_index.get_terms():
+                print("Warning: Merged index is empty!")
+                return False
+
+            print(f"Writing merged index to {output_path}")
+            merged_index.write_compressed_index_to_file(output_path, is_compressed=True)
+
+            # Verify the written file
+            print("Verifying merged index...")
+            try:
+                verification_index = InvertedIndex.load_compressed_index_to_memory(output_path)
+                if len(verification_index.get_terms()) > 0:
+                    print("Verification successful!")
+                    return True
+                else:
+                    print("Verification failed: Index is empty after loading")
+                    return False
+            except Exception as e:
+                print(f"Verification failed: {e}")
+                return False
+
+        except Exception as e:
+            print(f"Error during merge and write: {e}")
+            return False
+
+    @staticmethod
+    def verify_index_integrity(filename: str) -> bool:
+        """Verifies that an index file can be properly loaded and contains valid data."""
+        try:
+            with open(filename, 'rb') as f:
+                while True:
+                    # Read term length
+                    term_length_bytes = f.read(2)
+                    if not term_length_bytes:
+                        break
+
+                    # Verify term length
+                    term_length = struct.unpack("H", term_length_bytes)[0]
+                    if term_length <= 0 or term_length > 1000:  # reasonable max term length
+                        raise ValueError(f"Invalid term length: {term_length}")
+
+                    # Read and verify term
+                    term_bytes = f.read(term_length)
+                    try:
+                        term = term_bytes.decode('utf-8')
+                    except UnicodeDecodeError as e:
+                        print(f"Invalid UTF-8 sequence in term at position {f.tell() - term_length}")
+                        raise e
+
+                    # Read compressed postings length
+                    compressed_length_bytes = f.read(4)
+                    if not compressed_length_bytes:
+                        raise EOFError("Unexpected end of file while reading compressed length")
+
+                    compressed_length = struct.unpack("I", compressed_length_bytes)[0]
+                    if compressed_length <= 0 or compressed_length > 10_000_000:  # reasonable max compressed size
+                        raise ValueError(f"Invalid compressed length: {compressed_length}")
+
+                    # Read compressed data
+                    compressed_data = f.read(compressed_length)
+                    if len(compressed_data) != compressed_length:
+                        raise EOFError("Incomplete compressed data")
+
+                    # Try to decompress the data to verify it's valid
+                    try:
+                        InvertedIndex.pfor_delta_decompress(compressed_data)
+                    except Exception as e:
+                        print(f"Failed to decompress postings for term '{term}'")
+                        raise e
+
+            return True
+
+        except Exception as e:
+            print(f"Index integrity check failed: {e}")
+            return False
 
     def get_index(self) -> InvertedIndex:
         return self.inverted_index

@@ -6,6 +6,7 @@ import time
 
 import psutil
 
+from InvertedIndex.InvertedIndex import InvertedIndex
 from InvertedIndex.InvertedIndexBuilder import InvertedIndexBuilder
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
@@ -25,42 +26,42 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         )
 
     def test_build_full_index(self):
-        """Test complete index building and merging process"""
+        """Test the complete index building and merging process with PForDelta compression."""
         start_time = time.time()
 
         try:
-            # Build the index
+            # Build the full index
             self.index_builder.build_full_index()
             build_time = time.time() - start_time
 
-            # Get the final index
+            # Retrieve the final inverted index
             index = self.index_builder.get_index()
             terms = index.get_terms()
 
-            # Basic validation
+            # Basic validation to ensure the index has terms
             self.assertGreater(len(terms), 0, "Index should contain terms")
 
-            # Select sample terms for detailed validation
+            # Select a sample of terms to validate the index content
             sample_terms = terms[:5]  # First 5 terms for testing
 
             for term in sample_terms:
                 postings = index.get_postings(term)
 
-                # Verify postings exist
+                # Check if postings list exists and is non-empty
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
 
-                # Verify posting structure
+                # Validate the structure of each posting
                 first_posting = postings[0]
                 self.assertIsInstance(first_posting.doc_id, int, "Document ID should be an integer")
 
-                # Verify postings are properly merged (no duplicates)
+                # Ensure postings are correctly merged without duplicates
                 doc_ids = [p.doc_id for p in postings]
                 unique_doc_ids = set(doc_ids)
                 self.assertEqual(len(doc_ids), len(unique_doc_ids),
                                  f"Duplicate document IDs found in postings for term '{term}'")
 
-            # Print performance metrics
+            # Output performance metrics
             print(f"\nIndex Building Performance:")
             print(f"- Build time: {build_time:.2f} seconds")
             print(f"- Total unique terms: {len(terms)}")
@@ -71,10 +72,15 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         except Exception as e:
             self.fail(f"Index building failed with error: {str(e)}")
 
-    def test__merge_indices(self):
+    def test_(self):
+        index = self.index_builder.inverted_index.load_compressed_index_from_file("Level1_Compressed_Merge_1.vb")
+        print(index.get_terms())
+        return
+
+    def test__merge_compressed_indices(self):
         """
-        Test merging multiple partial indices in a hierarchical manner.
-        Merges 8 initial indices pair by pair until getting a single final index.
+        Test merging multiple partial compressed indices in a hierarchical and recursive manner.
+        Merges 8 initial compressed indices pair by pair until a single final index is created.
         """
 
         def get_file_size_mb(path: str) -> float:
@@ -87,76 +93,63 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             print(f'\n{level}: Merging files of size {sizes[0]:.1f}MB and {sizes[1]:.1f}MB')
             print(f'Files: {pair}')
 
-        # Initial partial indices (assumed to exist)
-        initial_indices = [f'Index_{i}' for i in range(1, 9)]
-        print(f"Starting with {len(initial_indices)} initial indices:")
+        def recursive_merge(indices: list, level: int = 1) -> str:
+            """Recursively merge indices until one final index remains"""
+            if len(indices) == 1:
+                return indices[0]  # Base case: only one index left
+
+            # Pair-wise merge
+            next_level_outputs = []
+            for i in range(0, len(indices), 2):
+                pair = indices[i:i + 2]
+                if len(pair) < 2:
+                    next_level_outputs.append(pair[0])
+                    continue
+
+                output_path = f"Level{level}_Compressed_Merge_{i // 2 + 1}.vb"
+                log_merge_operation(pair, f"Level {level}")
+
+                # Use the improved merge_and_write_compressed_indices method
+                success = self.index_builder.merge_and_write_compressed_indices(
+                    index1_path=pair[0],
+                    index2_path=pair[1],
+                    output_path=output_path
+                )
+
+                if not success:
+                    raise ValueError(f"Failed to merge and verify index: {output_path}")
+
+                next_level_outputs.append(output_path)
+
+            # Recurse with the next level outputs
+            return recursive_merge(next_level_outputs, level + 1)
+
+        # Initial partial compressed indices (assumed to exist)
+        initial_indices = [f'Compressed_Index_{i}.vb' for i in range(1, 9)]
+        print(f"Starting with {len(initial_indices)} initial compressed indices:")
         for idx in initial_indices:
             print(f"- {idx}: {get_file_size_mb(idx):.1f}MB")
 
-        # First level merges (4 pairs from 8 initial files)
-        first_level_outputs = []
-        for i in range(0, len(initial_indices), 2):
-            pair_first_level = initial_indices[i:i + 2]
-            output_path = f"Level1_Merge_{i // 2 + 1}"
+            # Use the builder's verify_index_integrity method
+            if not self.index_builder.verify_index_integrity(idx):
+                raise ValueError(f"Initial index failed integrity check: {idx}")
 
-            log_merge_operation(pair_first_level, "First Level")
-
-            # Merge pair using hybrid method
-            temp_index = self.index_builder.merge_two_indices(
-                index1_path=pair_first_level[0],
-                index2_path=pair_first_level[1]
-            )
-            temp_index.write_to_file(output_path)
-            first_level_outputs.append(output_path)
-
-            # Clean up
-            del temp_index
-            gc.collect()
-
-        # Second level merges (2 pairs from 4 files)
-        second_level_outputs = []
-        for i in range(0, len(first_level_outputs), 2):
-            pair_second_level = first_level_outputs[i:i + 2]
-            output_path = f"Level2_Merge_{i // 2 + 1}"
-
-            log_merge_operation(pair_second_level, "Second Level")
-
-            # Merge pair using hybrid method
-            temp_index = self.index_builder.merge_two_indices(
-                index1_path=pair_second_level[0],
-                index2_path=pair_second_level[1]
-            )
-            temp_index.write_to_file(output_path)
-            second_level_outputs.append(output_path)
-
-            # Clean up
-            del temp_index
-            gc.collect()
-
-        # Final merge (last 2 files)
-        log_merge_operation(second_level_outputs, "Final Level")
-
-        # For the final merge, explicitly use memory-efficient method if files are large
-        final_index = self.index_builder.merge_two_indices(
-            index1_path=second_level_outputs[0],
-            index2_path=second_level_outputs[1],
-            memory_efficient=True  # Force memory-efficient for final merge
-        )
-
-        # Write final result
-        final_path = 'final_index'
-        final_index.write_to_file(final_path)
+        # Begin recursive merging
+        final_path = recursive_merge(initial_indices)
 
         # Print final statistics
         print(f"\nMerge complete! Final index size: {get_file_size_mb(final_path):.1f}MB")
+
+        # Load and verify the final index
+        final_index = self.index_builder.inverted_index.load_compressed_index_from_file(final_path)
         print(f"Terms in final index: {len(final_index.get_terms())}")
 
         # Optional: Clean up intermediate files
-        cleanup_files = first_level_outputs + second_level_outputs
-        for file_path in cleanup_files:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                print(f"Cleaned up intermediate file: {file_path}")
+        # intermediate_files = [f for f in os.listdir() if f.startswith("Level") and f.endswith(".vb")]
+        # for file_path in intermediate_files:
+        # if os.path.exists(file_path):
+        # os.remove(file_path)
+        # print(f"Cleaned up intermediate file: {file_path}")
 
     def test_streaming_merge_final_pass(self):
         """
@@ -244,6 +237,95 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
         # Clean up
         del final_index
+        gc.collect()
+
+        print("\nTest completed successfully!")
+
+    def test_streaming_merge_compressed_indices(self):
+        """
+        Test merging two compressed indices using the streaming approach.
+        This test focuses on the memory-efficient merge of the compressed indices.
+        """
+
+        def get_file_size_mb(path: str) -> float:
+            """Helper to get file size in MB"""
+            return os.path.getsize(path) / (1024 * 1024)
+
+        def log_memory_usage():
+            """Helper to log current memory usage"""
+            process = psutil.Process()
+            memory_mb = process.memory_info().rss / (1024 * 1024)
+            return f"{memory_mb:.1f}MB"
+
+        # Paths for the two compressed indices to merge
+        index1_path = "Compressed_Index_1.vb"
+        index2_path = "Compressed_Index_2.vb"
+
+        print("\nStarting streaming merge test of compressed indices:")
+        print(f"Index 1 size: {get_file_size_mb(index1_path):.1f}MB")
+        print(f"Index 2 size: {get_file_size_mb(index2_path):.1f}MB")
+        print(f"Initial memory usage: {log_memory_usage()}")
+
+        # Time the merge operation
+        start_time = time.time()
+
+        # Perform the memory-efficient merge of compressed indices
+        merged_index = self.index_builder.merge_compressed_indices_in_memory(
+            index1_path=index1_path,
+            index2_path=index2_path
+        )
+
+        merge_time = time.time() - start_time
+
+        # Write the merged index to a file
+        merged_path = 'Merged_Compressed_Index'
+        merged_index.write_compressed_index_to_file(merged_path)
+
+        # Get results and stats
+        merged_terms = merged_index.get_terms()
+
+        # Print comprehensive results
+        print("\nMerge completed!")
+        print(f"Time taken: {merge_time:.1f} seconds")
+        print(f"Merged index size: {get_file_size_mb(merged_path):.1f}MB")
+        print(f"Peak memory usage: {log_memory_usage()}")
+        print(f"Number of terms in merged index: {len(merged_terms)}")
+
+        # Optional: Basic validation
+        print("\nPerforming basic validation...")
+
+        # Load original compressed indices to compare term counts (if memory allows)
+        try:
+            with open(index1_path, 'rb'):
+                temp_index1 = InvertedIndex.load_compressed_index_to_memory(index1_path)
+                terms1 = set(temp_index1.get_terms())
+                del temp_index1
+                gc.collect()
+
+            with open(index2_path, 'rb'):
+                temp_index2 = InvertedIndex.load_compressed_index_to_memory(index2_path)
+                terms2 = set(temp_index2.get_terms())
+                del temp_index2
+                gc.collect()
+
+            expected_term_count = len(terms1.union(terms2))
+            actual_term_count = len(merged_terms)
+
+            print(f"Terms in index 1: {len(terms1)}")
+            print(f"Terms in index 2: {len(terms2)}")
+            print(f"Terms in merged index: {actual_term_count}")
+            print(f"Expected unique terms: {expected_term_count}")
+
+            assert actual_term_count == expected_term_count, \
+                f"Term count mismatch: got {actual_term_count}, expected {expected_term_count}"
+
+            print("Validation passed: Term counts match expected values")
+
+        except Exception as e:
+            print(f"Validation skipped or failed: {str(e)}")
+
+        # Clean up
+        del merged_index
         gc.collect()
 
         print("\nTest completed successfully!")

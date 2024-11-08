@@ -7,6 +7,8 @@ from nltk import PorterStemmer
 from nltk.corpus import stopwords
 import logging
 from tqdm import tqdm
+import unicodedata
+
 
 class Preprocessing:
     def __init__(self, use_cache: bool = True) -> None:
@@ -19,10 +21,15 @@ class Preprocessing:
     def clean_text(text: str) -> str:
         if not text:
             return ""
-        # Compile regex patterns once
-        text = re.sub(r'\W', ' ', text)
-        text = re.sub(r'_', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
+
+        # Normalize text to remove diacritical marks and ensure ASCII compatibility
+        text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
+
+        # Remove non-alphanumeric characters and extra spaces
+        text = re.sub(r'\W', ' ', text)  # Replace non-word characters with spaces
+        text = re.sub(r'_', ' ', text)  # Replace underscores with spaces
+        text = re.sub(r'\s+', ' ', text)  # Collapse multiple spaces into a single space
+
         return text.strip().lower()
 
     @staticmethod
@@ -34,17 +41,14 @@ class Preprocessing:
         current_entity = []
 
         for word in text.split():
-            # Approximate entities by checking if the word starts with an uppercase letter
             if word[0].isupper():
                 current_entity.append(word)
             else:
-                # Add accumulated entity
                 if current_entity:
                     tokens.append(' '.join(current_entity))
                     current_entity = []
                 tokens.append(word)
 
-        # Add last entity if it exists
         if current_entity:
             tokens.append(' '.join(current_entity))
 
@@ -65,15 +69,12 @@ class Preprocessing:
             if not text:
                 return []
 
-            # Clean and tokenize text
             text = self.clean_text(text)
             tokens = self.tokenize(text)
 
-            # Remove stopwords if needed
             if stopwords_flag:
                 tokens = self.remove_stopwords(tokens)
 
-            # Apply stemming if requested
             if stem_flag:
                 tokens = self.stem_tokens(tokens)
 
@@ -92,7 +93,6 @@ class Preprocessing:
 
         args = [(text, stopwords_flag, stem_flag) for text in texts]
 
-        # Process all texts in parallel without batching
         with Pool(cpu_count() - 1) as pool:
             all_preprocessed = list(tqdm(
                 pool.imap(self._process_text_helper, args),
