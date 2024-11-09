@@ -8,7 +8,6 @@ from tqdm import tqdm
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from InvertedIndex.InvertedIndex import InvertedIndex
 from Utils.CollectionLoader import CollectionLoader
-from Utils.CompressionTools import CompressionTools
 from Utils.Preprocessing import Preprocessing
 
 
@@ -24,7 +23,7 @@ class InvertedIndexBuilder:
         """
         self.collection_loader = collection_loader
         self.preprocessing = preprocessing
-        self.inverted_index = InvertedIndex()
+        self.compressed_inverted_index = CompressedInvertedIndex()
         self.chunk_size = chunk_size
 
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
@@ -90,7 +89,7 @@ class InvertedIndexBuilder:
             # Merge all partial indices if needed
             # self.inverted_index = self._merge_partial_indices(partial_indices_paths)
 
-            total_terms = len(self.inverted_index.get_terms())
+            total_terms = len(self.compressed_inverted_index.get_terms())
             print(f"Index built successfully with {total_terms} unique terms.")
 
             # Optionally, delete intermediate files
@@ -113,7 +112,7 @@ class InvertedIndexBuilder:
             sample_df = self.collection_loader.sample_lines(10000)
             print(f"Processing {len(sample_df)} sampled documents...")
 
-            self.inverted_index = InvertedIndex()
+            self.compressed_inverted_index = InvertedIndex()
             tokens_list = self.preprocessing.vectorized_preprocess(sample_df['text'])
 
             for doc_id, tokens in zip(sample_df['index'], tokens_list):
@@ -122,56 +121,14 @@ class InvertedIndexBuilder:
                 unique_tokens = set(tokens)
                 for token in unique_tokens:
                     if token:
-                        self.inverted_index.add_posting(token, doc_id)
+                        self.compressed_inverted_index.add_posting(token, doc_id)
 
-            print(f"Partial index built with {len(self.inverted_index.get_terms())} unique terms.")
+            print(f"Partial index built with {len(self.compressed_inverted_index.get_terms())} unique terms.")
 
         except Exception as e:
             print(f"Error building partial index: {str(e)}")
             raise
 
-    @staticmethod
-    def _merge_compressed_postings(postings1: bytes, postings2: bytes) -> bytes:
-        """Merge two lists of compressed postings."""
-        if not postings1:
-            return postings2
-        if not postings2:
-            return postings1
-
-        doc_ids1 = CompressionTools.pfor_delta_decompress(postings1)
-        doc_ids2 = CompressionTools.pfor_delta_decompress(postings2)
-        merged_doc_ids = sorted(set(doc_ids1 + doc_ids2))
-        return CompressionTools.pfor_delta_compress(merged_doc_ids)
-
-    def merge_compressed_indices_in_memory(self, index1_path: str, index2_path: str) -> CompressedInvertedIndex:
-        """Merge two compressed indices while maintaining the defaultdict structure."""
-        print(f"Loading compressed index from {index1_path}")
-        index1 = CompressedInvertedIndex.load_compressed_index_to_memory(index1_path)
-        print(f"Loading compressed index from {index2_path}")
-        index2 = CompressedInvertedIndex.load_compressed_index_to_memory(index2_path)
-
-        merged_index = CompressedInvertedIndex()
-        all_terms = set(index1.get_terms()).union(index2.get_terms())
-        total_terms = len(all_terms)
-        print(f"Merging {total_terms} unique terms...")
-
-        for term in all_terms:
-            try:
-                print("Trying to get first index posting")
-                postings1 = index1.get_compressed_postings(term)
-                print("Trying to get second index posting")
-                postings2 = index2.get_compressed_postings(term)
-                print("Trying to merge")
-                merged_postings = self._merge_compressed_postings(postings1, postings2)
-                if merged_postings:
-                    print("Trying to load postings in the index")
-                    merged_index.add_compressed_postings(term, merged_postings)
-            except Exception as e:
-                print(f"Error merging term '{term}': {e}")
-                break
-
-        return merged_index
-
-    def get_index(self) -> InvertedIndex:
+    def get_index(self) -> CompressedInvertedIndex:
         """Get the built inverted index."""
-        return self.inverted_index
+        return self.compressed_inverted_index

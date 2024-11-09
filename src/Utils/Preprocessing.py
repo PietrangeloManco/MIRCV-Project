@@ -9,7 +9,6 @@ import logging
 from tqdm import tqdm
 import unicodedata
 
-
 class Preprocessing:
     def __init__(self, use_cache: bool = True) -> None:
         self.stop_words = set(stopwords.words('english'))

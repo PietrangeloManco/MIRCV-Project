@@ -1,4 +1,9 @@
 import struct
+from typing import List
+
+from InvertedIndex.Posting import Posting
+from Utils.CompressionTools import CompressionTools
+
 
 # Inverted Index structure class
 class CompressedInvertedIndex:
@@ -71,3 +76,21 @@ class CompressedInvertedIndex:
 
     def get_terms(self):
         return self._compressed_index.keys()
+
+    def get_uncompressed_postings(self, term: str) -> List[Posting]:
+        """
+        Fetches the uncompressed postings for a given term as a list of Posting objects.
+
+        Args:
+            term: The term for which the postings are being fetched.
+
+        Returns:
+            A list of Posting objects, or an empty list if the term is not found.
+        """
+        compressed_postings = self.get_compressed_postings(term)
+        if compressed_postings:
+            doc_ids = CompressionTools.pfor_delta_decompress(compressed_postings)
+            # Convert doc_ids to a list of Posting objects
+            list_postings = [Posting(doc_id=doc_id) for doc_id in doc_ids]
+            return list_postings
+        return []
