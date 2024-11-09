@@ -83,7 +83,7 @@ class InvertedIndexBuilder:
 
                     # Write the partial compressed index to a file
                     chunk_index_path = f'Compressed_Index_{counter}.vb'
-                    chunk_index.write_index_compressed_to_file(chunk_index_path)
+                    chunk_index.write_index_compressed_to_file(chunk_index_path, )
                     partial_indices_paths.append(chunk_index_path)
 
                     # Clean up memory

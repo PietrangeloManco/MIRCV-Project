@@ -1,5 +1,6 @@
 import unittest
 import time
+import os
 from InvertedIndex.InvertedIndexBuilder import InvertedIndexBuilder
 from InvertedIndex.Merger import Merger
 from Utils.CollectionLoader import CollectionLoader
@@ -12,13 +13,23 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         cls.collection_loader = CollectionLoader()
         cls.preprocessing = Preprocessing()
         cls.merger = Merger()
+
     def setUp(self):
         """Create a fresh InvertedIndexBuilder instance for each test."""
         self.index_builder = InvertedIndexBuilder(
             collection_loader=self.collection_loader,
             preprocessing=self.preprocessing,
-            merger = self.merger
+            merger=self.merger
         )
+
+    def tearDown(self):
+        """Ensure any intermediate index files are cleaned up after each test."""
+        # Assuming partial indices are written to disk and need cleanup
+        for i in range(1, 9):  # Assuming 8 partial indices are created for testing
+            index_path = f'Compressed_Index_{i}.vb'
+            if os.path.exists(index_path):
+                os.remove(index_path)
+                print(f"Deleted intermediate index file: {index_path}")
 
     def test_build_full_index(self):
         """Test the complete index building and merging process with PForDelta compression."""
@@ -66,13 +77,6 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
         except Exception as e:
             self.fail(f"Index building failed with error: {str(e)}")
-
-    def test__merge_compressed_indices(self):
-        # Initial partial compressed indices (assumed to exist)
-        initial_indices = [f'Compressed_Index_{i}.vb' for i in range(1, 9)]
-        print(f"Starting with {len(initial_indices)} initial compressed indices:")
-        final_index = self.merger.merge_multiple_compressed_indices(initial_indices)
-        final_index.write_compressed_index_to_file("final_index")
 
     def test_build_partial_index(self):
         """Test partial index building with sampled documents"""
@@ -151,7 +155,6 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
         except Exception as e:
             self.fail(f"Partial index building failed with error: {str(e)}")
-
 
 if __name__ == '__main__':
     unittest.main()

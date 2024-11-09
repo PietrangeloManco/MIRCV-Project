@@ -29,7 +29,7 @@ class Preprocessing:
         text = re.sub(r'_', ' ', text)  # Replace underscores with spaces
         text = re.sub(r'\s+', ' ', text)  # Collapse multiple spaces into a single space
 
-        return text.strip().lower()
+        return text.strip()
 
     @staticmethod
     def tokenize(text: str) -> List[str]:
@@ -53,6 +53,10 @@ class Preprocessing:
 
         return tokens
 
+    @staticmethod
+    def lower_tokens(tokens: List[str]) -> List[str]:
+        return [token.lower() for token in tokens]
+
     def remove_stopwords(self, tokens: List[str]) -> List[str]:
         return [word for word in tokens if word not in self.stop_words]
 
@@ -70,6 +74,7 @@ class Preprocessing:
 
             text = self.clean_text(text)
             tokens = self.tokenize(text)
+            tokens = self.lower_tokens(tokens)
 
             if stopwords_flag:
                 tokens = self.remove_stopwords(tokens)

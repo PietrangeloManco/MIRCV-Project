@@ -84,3 +84,4 @@ class Merger:
 
         # Return the final merged index
         return indices[0]
+

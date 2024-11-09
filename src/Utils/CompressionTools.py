@@ -7,7 +7,7 @@ class CompressionTools:
     def pfor_delta_decompress(data: bytes) -> Tuple[List[int], List[int]]:
         """Decompresses data into a list of doc IDs and term frequencies."""
         if len(data) == 0:
-            return [], []
+            return [], []  # Handle empty data gracefully
 
         bit_width = struct.unpack("B", data[:1])[0]
         data = data[1:]
@@ -49,6 +49,9 @@ class CompressionTools:
         """Compresses a list of doc IDs and term frequencies into a byte array."""
         if len(doc_ids) != len(frequencies):
             raise ValueError("doc_ids and frequencies lists must be of the same length.")
+
+        if len(doc_ids) == 0:  # Handle empty input lists
+            return b""
 
         # Step 1: Delta encode the doc IDs
         deltas = [doc_ids[0]] + [doc_ids[i] - doc_ids[i - 1] for i in range(1, len(doc_ids))]
