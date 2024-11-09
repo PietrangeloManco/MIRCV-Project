@@ -17,6 +17,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         self.index_builder = InvertedIndexBuilder(
             collection_loader=self.collection_loader,
             preprocessing=self.preprocessing,
+            merger = self.merger
         )
 
     def test_build_full_index(self):
@@ -80,11 +81,9 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
         try:
             # Build the partial index
-            self.index_builder.build_partial_index()
+            index = self.index_builder.build_partial_index()
             build_time = time.time() - start_time
 
-            # Get the final index
-            index = self.index_builder.get_index()
             terms = index.get_terms()
 
             # Basic validation
@@ -93,7 +92,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             # Validate document count
             all_doc_ids = set()
             for term in terms:
-                postings = index.get_uncompressed_postings(term)
+                postings = index.get_postings(term)
                 doc_ids = {posting.doc_id for posting in postings}
                 all_doc_ids.update(doc_ids)
 
@@ -108,7 +107,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             sample_terms = terms[:5] if len(terms) >= 5 else terms  # First 5 terms or all if less
 
             for term in sample_terms:
-                postings = index.get_uncompressed_postings(term)
+                postings = index.get_postings(term)
 
                 # Verify postings exist
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
@@ -145,10 +144,10 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             print(f"- Build time: {build_time:.2f} seconds")
             print(f"- Total unique terms: {len(terms)}")
             print(f"- Total unique documents: {len(all_doc_ids)}")
-            print(f"- Average postings per term: {sum(len(index.get_compressed_postings(t)) for t in terms) / len(terms):.2f}")
+            print(f"- Average postings per term: {sum(len(index.get_postings(t)) for t in terms) / len(terms):.2f}")
             print(f"- Sample term frequencies:")
             for term in sample_terms:
-                print(f"  - '{term}': {len(index.get_uncompressed_postings(term))} documents")
+                print(f"  - '{term}': {len(index.get_postings(term))} documents")
 
         except Exception as e:
             self.fail(f"Partial index building failed with error: {str(e)}")

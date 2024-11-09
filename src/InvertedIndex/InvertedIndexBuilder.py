@@ -7,12 +7,14 @@ from tqdm import tqdm
 
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from InvertedIndex.InvertedIndex import InvertedIndex
+from InvertedIndex.Merger import Merger
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
 
 
 class InvertedIndexBuilder:
-    def __init__(self, collection_loader: CollectionLoader, preprocessing: Preprocessing, chunk_size: int = 1105228) -> None:
+    def __init__(self, collection_loader: CollectionLoader, preprocessing: Preprocessing,
+                 merger: Merger, chunk_size: int = 1105228) -> None:
         """
         Initialize the InvertedIndexBuilder.
 
@@ -25,6 +27,7 @@ class InvertedIndexBuilder:
         self.preprocessing = preprocessing
         self.compressed_inverted_index = CompressedInvertedIndex()
         self.chunk_size = chunk_size
+        self.merger = merger
 
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
         """
@@ -46,10 +49,14 @@ class InvertedIndexBuilder:
             tokens_list = self.preprocessing.vectorized_preprocess(chunk['text'])
 
             for doc_id, tokens in zip(chunk['index'], tokens_list):
-                unique_tokens = set(tokens)
-                for token in unique_tokens:
+                token_freq_map = {}  # Map to store token frequency for the document
+                for token in tokens:
                     if token:  # Skip empty tokens
-                        chunk_index.add_posting(token, doc_id)
+                        token_freq_map[token] = token_freq_map.get(token, 0) + 1
+
+                for token, freq in token_freq_map.items():
+                    # Add posting with term frequency
+                    chunk_index.add_posting(token, doc_id, freq)
 
             return chunk_index
 
@@ -57,8 +64,8 @@ class InvertedIndexBuilder:
             print(f"Error processing chunk: {str(e)}")
             return InvertedIndex()
 
-    def build_full_index(self) -> None:
-        """Build a complete inverted index using chunk processing with compression."""
+    def build_partial_indices(self) -> List[str]:
+        """Build partial compressed indices in chunks and return their file paths."""
         try:
             total_docs = self.collection_loader.get_total_docs()
             total_chunks = (total_docs + self.chunk_size - 1) // self.chunk_size
@@ -85,18 +92,29 @@ class InvertedIndexBuilder:
                     gc.collect()
                     pbar.update(1)
 
+            return partial_indices_paths
+
+        except Exception as e:
+            print(f"Error building partial indices: {str(e)}")
+            raise
+
+    def build_full_index(self) -> None:
+        """Build the full inverted index by merging partial indices."""
+        try:
+            partial_indices_paths = self.build_partial_indices()
+
             print("Merging indices...")
             # Merge all partial indices if needed
-            # self.inverted_index = self._merge_partial_indices(partial_indices_paths)
+            self.compressed_inverted_index = self.merger.merge_multiple_compressed_indices(partial_indices_paths)
 
             total_terms = len(self.compressed_inverted_index.get_terms())
             print(f"Index built successfully with {total_terms} unique terms.")
 
             # Optionally, delete intermediate files
-            # self._delete_partial_indices(partial_indices_paths)
+            self._delete_partial_indices(partial_indices_paths)
 
         except Exception as e:
-            print(f"Error building index: {str(e)}")
+            print(f"Error building full index: {str(e)}")
             raise
 
     @staticmethod
@@ -106,24 +124,29 @@ class InvertedIndexBuilder:
             os.remove(path)
             print(f"Deleted intermediate index file: {path}")
 
-    def build_partial_index(self) -> None:
+    def build_partial_index(self) -> InvertedIndex:
         """Build a partial inverted index using a sample of documents for testing or analysis."""
         try:
             sample_df = self.collection_loader.sample_lines(10000)
             print(f"Processing {len(sample_df)} sampled documents...")
 
-            self.compressed_inverted_index = InvertedIndex()
+            partial_inverted_index = InvertedIndex()
             tokens_list = self.preprocessing.vectorized_preprocess(sample_df['text'])
 
             for doc_id, tokens in zip(sample_df['index'], tokens_list):
                 if not isinstance(doc_id, (int, np.int32, np.int64)):
                     doc_id = int(doc_id)
-                unique_tokens = set(tokens)
-                for token in unique_tokens:
+                token_freq_map = {}
+                for token in tokens:
                     if token:
-                        self.compressed_inverted_index.add_posting(token, doc_id)
+                        token_freq_map[token] = token_freq_map.get(token, 0) + 1
 
-            print(f"Partial index built with {len(self.compressed_inverted_index.get_terms())} unique terms.")
+                for token, freq in token_freq_map.items():
+                    partial_inverted_index.add_posting(token, doc_id, freq)
+
+            print(f"Partial index built with {len(partial_inverted_index.get_terms())} unique terms.")
+
+            return partial_inverted_index
 
         except Exception as e:
             print(f"Error building partial index: {str(e)}")

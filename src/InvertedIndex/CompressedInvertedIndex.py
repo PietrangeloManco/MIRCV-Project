@@ -1,11 +1,8 @@
 import struct
 from typing import List
-
 from InvertedIndex.Posting import Posting
 from Utils.CompressionTools import CompressionTools
 
-
-# Inverted Index structure class
 class CompressedInvertedIndex:
     def __init__(self):
         self._compressed_index = {}
@@ -13,17 +10,15 @@ class CompressedInvertedIndex:
     def write_compressed_index_to_file(self, filename: str) -> None:
         """Writes the inverted index to a file using PForDelta compression if needed."""
         with open(filename, 'wb') as f:
-            for term, compressed_doc_ids in self._compressed_index.items():
+            for term, compressed_data in self._compressed_index.items():
                 # Write the term as a UTF-8 encoded string
                 term_bytes = term.encode('utf-8')
                 f.write(struct.pack("H", len(term_bytes)))  # Write term length (2 bytes)
                 f.write(term_bytes)  # Write term
 
-                # Write the length of the compressed doc_ids (4 bytes)
-                f.write(struct.pack("I", len(compressed_doc_ids)))
-                f.write(compressed_doc_ids)  # Write compressed doc_ids
-
-                # Optionally, handle payloads if needed
+                # Write the length of the compressed data (4 bytes)
+                f.write(struct.pack("I", len(compressed_data)))
+                f.write(compressed_data)  # Write compressed doc_ids and frequencies
 
     @staticmethod
     def load_compressed_index_to_memory(filename: str) -> 'CompressedInvertedIndex':
@@ -45,13 +40,13 @@ class CompressedInvertedIndex:
                     raise ValueError("Unexpected end of file when reading compressed length")
 
                 compressed_length = struct.unpack("I", compressed_length_bytes)[0]
-                compressed_doc_ids = f.read(compressed_length)
+                compressed_data = f.read(compressed_length)
 
-                if len(compressed_doc_ids) != compressed_length:
+                if len(compressed_data) != compressed_length:
                     raise ValueError("Mismatch between expected and actual compressed length")
 
                 # Store the compressed data in memory
-                index._compressed_index[term] = compressed_doc_ids  # Use assignment, not append
+                index._compressed_index[term] = compressed_data  # Use assignment, not append
 
         return index
 
@@ -89,8 +84,21 @@ class CompressedInvertedIndex:
         """
         compressed_postings = self.get_compressed_postings(term)
         if compressed_postings:
-            doc_ids = CompressionTools.pfor_delta_decompress(compressed_postings)
-            # Convert doc_ids to a list of Posting objects
-            list_postings = [Posting(doc_id=doc_id) for doc_id in doc_ids]
+            doc_ids, frequencies = CompressionTools.pfor_delta_decompress(compressed_postings)
+            # Convert doc_ids and frequencies to a list of Posting objects
+            list_postings = [Posting(doc_id=doc_id, payload=freq) for doc_id, freq in zip(doc_ids, frequencies)]
             return list_postings
         return []
+
+    def compress_and_add_postings(self, term: str, doc_ids: List[int], frequencies: List[int]) -> None:
+        """
+        Compress and add postings for a term.
+
+        Args:
+            term: The term for which the postings are being added.
+            doc_ids: A list of document IDs.
+            frequencies: A list of term frequencies corresponding to the doc IDs.
+        """
+        # Compress doc_ids and frequencies together
+        compressed_data = CompressionTools.pfor_delta_compress(doc_ids, frequencies)
+        self.add_compressed_postings(term, compressed_data)

@@ -27,50 +27,61 @@ class CollectionLoader:
                 self._total_docs = sum(1 for _ in file)
         return self._total_docs
 
-    def process_chunks(self, chunk_size: int = None) -> Iterator[DataFrame]:
+    def process_single_chunk(self, start: int, chunk_size: int) -> pd.DataFrame:
         """
-        Process collection in chunks, yielding DataFrames
+        Process a single chunk of the collection starting from a given line.
 
         Args:
-            chunk_size: Optional override for chunk size
+            start: Line number to start reading from.
+            chunk_size: Number of lines to read in the chunk.
+
+        Returns:
+            DataFrame: DataFrame containing the processed chunk.
+        """
+        chunk = []
+
+        with gzip.open(self.file_path, 'rt', encoding='utf-8') as file:
+            next(file)  # Skip header
+            for _ in range(start):
+                next(file)  # Skip lines until the start point
+
+            for _ in range(chunk_size):
+                line = file.readline()
+                if not line:
+                    break  # End of file reached
+
+                columns = line.strip().split('\t')
+                if len(columns) == len(self.column_names):
+                    chunk.append(columns)
+
+        if chunk:
+            df = pd.DataFrame(chunk, columns=self.column_names)
+            df['index'] = pd.to_numeric(df['index'], errors='coerce')
+            df = df.dropna(subset=['index'])
+            df['index'] = df['index'].astype(int)
+            return df
+
+        return pd.DataFrame(columns=self.column_names)
+
+    def process_chunks(self, chunk_size: int = None) -> Iterator[pd.DataFrame]:
+        """
+        Process the entire collection in chunks, yielding DataFrames.
+
+        Args:
+            chunk_size: Optional override for chunk size.
 
         Yields:
-            DataFrame: Chunk of documents
+            DataFrame: Chunk of documents.
         """
         if chunk_size is None:
             chunk_size = self.chunk_size
 
-        with gzip.open(self.file_path, 'rt', encoding='utf-8') as file:
-            next(file)  # Skip header
-            chunk = []
+        total_lines = self.get_total_docs()  # Implement this method if needed
+        start = 0
 
-            for line in file:
-                try:
-                    # Split line into columns and strip whitespace
-                    columns = line.strip().split('\t')
-                    if len(columns) == len(self.column_names):
-                        chunk.append(columns)
-
-                    if len(chunk) >= chunk_size:
-                        df = pd.DataFrame(chunk, columns=self.column_names)
-                        # Convert index column to integer
-                        df['index'] = pd.to_numeric(df['index'], errors='coerce')
-                        # Drop rows with invalid indices
-                        df = df.dropna(subset=['index'])
-                        df['index'] = df['index'].astype(int)
-                        yield df
-                        chunk = []
-                except Exception as e:
-                    print(f"Warning: Skipping malformed line: {str(e)}")
-                    continue
-
-            # Handle last chunk if it exists
-            if chunk:
-                df = pd.DataFrame(chunk, columns=self.column_names)
-                df['index'] = pd.to_numeric(df['index'], errors='coerce')
-                df = df.dropna(subset=['index'])
-                df['index'] = df['index'].astype(int)
-                yield df
+        while start < total_lines:
+            yield self.process_single_chunk(start, chunk_size)
+            start += chunk_size
 
     def sample_lines(self, num_lines: int = 10) -> DataFrame:
         """

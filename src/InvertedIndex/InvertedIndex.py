@@ -6,13 +6,12 @@ from src.InvertedIndex.Posting import Posting
 
 # Inverted Index structure class
 class InvertedIndex:
-
     def __init__(self):
         self._index = defaultdict(list)
 
     # Add a posting to the inverted index
     def add_posting(self, term: str, doc_id: int, payload: Any = None) -> None:
-        """Adds a document to the posting list of a term."""
+        """Adds a document to the posting list of a term, with optional term frequency as payload."""
         self._index[term].append(Posting(doc_id, payload))
 
     def add_postings(self, term: str, postings: Iterator[Posting]) -> None:
@@ -30,19 +29,19 @@ class InvertedIndex:
 
     # Write the inverted index to a file
     def write_to_file(self, filename_index: str) -> None:
-        """Saves the index to a textfile."""
+        """Saves the index to a text file with term frequencies as payloads."""
         with open(filename_index, "w") as f:
             for term, postings in self._index.items():
                 f.write(term)
                 for posting in postings:
                     f.write(f" {posting.doc_id}")
-                    if posting.payload:
-                        f.write(f":{str(posting.payload)}")
+                    if posting.payload is not None:
+                        f.write(f":{str(posting.payload)}")  # Write the payload (term frequency)
                 f.write("\n")
 
     @staticmethod
     def load_from_file(filename_index: str) -> 'InvertedIndex':
-        """Loads an inverted index from a textfile."""
+        """Loads an inverted index from a text file, handling term frequencies as payloads."""
         index = InvertedIndex()
         with open(filename_index, "r") as f:
             for line in f:
@@ -50,41 +49,9 @@ class InvertedIndex:
                 term = terms[0]
                 for term_data in terms[1:]:
                     doc_id, *payload = term_data.split(":")
-                    payload = ":".join(payload) if payload else None
+                    payload = int(payload[0]) if payload else None
                     index.add_posting(term, int(doc_id), payload)
         return index
-
-    @staticmethod
-    def read_index_terms(filename: str) -> set:
-        """Read unique terms from the index file."""
-        terms = set()
-        with open(filename, "r") as f:
-            for line in f:
-                parts = line.strip().split()
-                if parts:
-                    terms.add(parts[0])  # Add the term (first part of the line)
-        return terms
-
-    @staticmethod
-    def read_index_postings(filename: str, batch_terms: set) -> dict:
-        """Read postings for specified terms from the index file."""
-        postings_dict = {}
-        with open(filename, "r") as f:
-            for line in f:
-                parts = line.strip().split()
-                if not parts:
-                    continue
-                term = parts[0]
-                if term in batch_terms:
-                    postings = []
-                    for posting_data in parts[1:]:
-                        doc_id, *payload = posting_data.split(":")
-                        payload = ":".join(payload) if payload else None
-                        postings.append(Posting(int(doc_id), payload))
-                    postings_dict[term] = postings
-        return postings_dict
-
-        # Helper function for variable byte encoding
 
     @staticmethod
     def load_compressed_index_from_file(filename: str) -> 'InvertedIndex':
@@ -104,7 +71,7 @@ class InvertedIndex:
                 compressed_doc_ids = f.read(compressed_length)
                 doc_ids = CompressionTools.pfor_delta_decompress(compressed_doc_ids)
 
-                # Add the postings to the index
+                # Add the postings to the index (without payload for now)
                 for doc_id in doc_ids:
                     index.add_posting(term, doc_id)
 
