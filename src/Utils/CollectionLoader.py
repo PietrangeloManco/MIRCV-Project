@@ -83,7 +83,7 @@ class CollectionLoader:
             yield self.process_single_chunk(start, chunk_size)
             start += chunk_size
 
-    def sample_lines(self, num_lines: int = 10) -> DataFrame:
+    def sample_lines(self, num_lines: int = 10) -> pd.DataFrame:
         """
         Sample random lines from collection using reservoir sampling
 
@@ -117,5 +117,8 @@ class CollectionLoader:
         sample_df['index'] = pd.to_numeric(sample_df['index'], errors='coerce')
         sample_df = sample_df.dropna(subset=['index'])
         sample_df['index'] = sample_df['index'].astype(int)
+
+        # Sort the DataFrame by the 'index' column (document IDs)
+        sample_df = sample_df.sort_values(by='index').reset_index(drop=True)
 
         return sample_df

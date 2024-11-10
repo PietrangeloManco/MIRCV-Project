@@ -71,7 +71,7 @@ class InvertedIndex:
                 compressed_doc_ids = f.read(compressed_length)
                 doc_ids, frequencies = CompressionTools.pfor_delta_decompress(compressed_doc_ids)
                 # Add the postings to the index (without payload for now)
-                for doc_id, frequency in [doc_ids, frequencies]:
+                for doc_id, frequency in zip(doc_ids, frequencies):
                     index.add_posting(term, doc_id, frequency)
 
         return index

@@ -1,8 +1,11 @@
 import unittest
 import time
 import os
+
+from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.InvertedIndexBuilder import InvertedIndexBuilder
 from InvertedIndex.Merger import Merger
+from Lexicon.Lexicon import Lexicon
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
 
@@ -13,13 +16,17 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         cls.collection_loader = CollectionLoader()
         cls.preprocessing = Preprocessing()
         cls.merger = Merger()
+        cls.document_table = DocumentTable()
+        cls.lexicon = Lexicon()
 
     def setUp(self):
         """Create a fresh InvertedIndexBuilder instance for each test."""
         self.index_builder = InvertedIndexBuilder(
             collection_loader=self.collection_loader,
             preprocessing=self.preprocessing,
-            merger=self.merger
+            merger=self.merger,
+            document_table=self.document_table,
+            lexicon=self.lexicon
         )
 
     def tearDown(self):
@@ -42,7 +49,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
             # Retrieve the final inverted index
             index = self.index_builder.get_index()
-            terms = index.get_terms()
+            terms = list(index.get_terms())
 
             # Basic validation to ensure the index has terms
             self.assertGreater(len(terms), 0, "Index should contain terms")
@@ -85,7 +92,10 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
         try:
             # Build the partial index
-            index = self.index_builder.build_partial_index()
+            self.index_builder.build_partial_index()
+            index = self.index_builder.get_index()
+            lexicon = self.index_builder.lexicon  # Assuming lexicon is accessible from the builder
+            document_table = self.index_builder.document_table  # Assuming document_table is accessible from the builder
             build_time = time.time() - start_time
 
             terms = index.get_terms()
@@ -96,7 +106,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             # Validate document count
             all_doc_ids = set()
             for term in terms:
-                postings = index.get_postings(term)
+                postings = index.get_uncompressed_postings(term)
                 doc_ids = {posting.doc_id for posting in postings}
                 all_doc_ids.update(doc_ids)
 
@@ -108,10 +118,10 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             )
 
             # Select sample terms for detailed validation
-            sample_terms = terms[:5] if len(terms) >= 5 else terms  # First 5 terms or all if less
+            sample_terms = list(terms)[:5] if len(terms) >= 5 else terms  # First 5 terms or all if less
 
             for term in sample_terms:
-                postings = index.get_postings(term)
+                postings = index.get_uncompressed_postings(term)
 
                 # Verify postings exist
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
@@ -143,18 +153,32 @@ class TestInvertedIndexBuilder(unittest.TestCase):
                     f"Total postings: {len(doc_ids)}, Unique postings: {len(unique_doc_ids)}"
                 )
 
+            # Verify lexicon contains expected terms
+            for term in sample_terms:
+                self.assertIn(term, lexicon.get_all_terms(), f"Lexicon should contain the term '{term}'")
+
+            # Verify document table contains expected documents
+            for doc_id in all_doc_ids:
+                self.assertIn(doc_id, document_table._document_table,
+                              f"Document table should contain the document ID {doc_id}")
+
             # Print performance metrics and index statistics
             print(f"\nPartial Index Building Performance:")
             print(f"- Build time: {build_time:.2f} seconds")
             print(f"- Total unique terms: {len(terms)}")
             print(f"- Total unique documents: {len(all_doc_ids)}")
-            print(f"- Average postings per term: {sum(len(index.get_postings(t)) for t in terms) / len(terms):.2f}")
+            print(
+                f"- Average postings per term: {sum(len(index.get_uncompressed_postings(t)) for t in terms) / len(terms):.2f}")
             print(f"- Sample term frequencies:")
             for term in sample_terms:
-                print(f"  - '{term}': {len(index.get_postings(term))} documents")
+                postings = index.get_uncompressed_postings(term)
+                num_documents = len(postings)  # Number of documents for the term
+                sample_frequencies = [posting.payload for posting in postings]  # Get frequencies from postings
+                print(f"  - '{term}': {num_documents} documents, Frequencies: {sample_frequencies}")
 
         except Exception as e:
             self.fail(f"Partial index building failed with error: {str(e)}")
+
 
 if __name__ == '__main__':
     unittest.main()

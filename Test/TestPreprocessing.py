@@ -25,7 +25,7 @@ class TestPreprocessing(unittest.TestCase):
         """Test various tokenization scenarios"""
         test_cases = [
             ("hello world", ["hello", "world"]),
-            ("New York City", ["New York City"]),
+            ("New York City", ["New", "York", "City"]),
             ("", []),
             ("OpenAI is an AI research company",
              ["OpenAI", "is", "an", "AI", "research", "company"])
@@ -34,16 +34,6 @@ class TestPreprocessing(unittest.TestCase):
         for input_text, expected_tokens in test_cases:
             with self.subTest(input=input_text):
                 self.assertEqual(self.preprocessor.tokenize(input_text), expected_tokens)
-
-    def test_lower_tokens(self):
-        """Comprehensive token stemming test"""
-        test_cases = [
-            (["Open", "AI", "NYC", "" , "lower"], ["open", "ai", "nyc", "", "lower"]),
-        ]
-
-        for input_tokens, expected_tokens in test_cases:
-            with self.subTest(input=input_tokens):
-                self.assertEqual(self.preprocessor.lower_tokens(input_tokens), expected_tokens)
 
     def test_stopwords_removal(self):
         """Comprehensive stopwords removal test"""
