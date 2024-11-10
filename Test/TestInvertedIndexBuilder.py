@@ -41,49 +41,96 @@ class TestInvertedIndexBuilder(unittest.TestCase):
     def test_build_full_index(self):
         """Test the complete index building and merging process with PForDelta compression."""
         start_time = time.time()
-
+        total_docs = self.collection_loader.get_total_docs()
         try:
-            # Build the full index
+            # Build the partial index
             self.index_builder.build_full_index()
             build_time = time.time() - start_time
 
-            # Retrieve the final inverted index
             index = self.index_builder.get_index()
-            terms = list(index.get_terms())
+            lexicon = self.index_builder.lexicon  # Assuming lexicon is accessible from the builder
+            document_table = self.index_builder.document_table  # Assuming document_table is accessible from the builder
 
-            # Basic validation to ensure the index has terms
-            self.assertGreater(len(terms), 0, "Index should contain terms")
+            terms = index.get_terms()
 
-            # Select a sample of terms to validate the index content
-            sample_terms = terms[:5]  # First 5 terms for testing
+            # Basic validation
+            self.assertGreater(len(terms), 0, "Partial index should contain terms")
+
+            # Validate document count
+            all_doc_ids = set()
+            for term in terms:
+                postings = index.get_uncompressed_postings(term)
+                doc_ids = {posting.doc_id for posting in postings}
+                all_doc_ids.update(doc_ids)
+
+            # Check if number of unique documents is less than or equal to sample size
+            self.assertLessEqual(
+                len(all_doc_ids),
+                total_docs,
+                f"Number of unique documents ({len(all_doc_ids)}) exceeds expected sample size ({total_docs})"
+            )
+
+            # Select sample terms for detailed validation
+            sample_terms = list(terms)[:100] if len(terms) >= 100 else terms  # First 100 terms or all if less
 
             for term in sample_terms:
                 postings = index.get_uncompressed_postings(term)
 
-                # Check if postings list exists and is non-empty
+                # Verify postings exist
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
 
-                # Validate the structure of each posting
+                # Verify posting structure
                 first_posting = postings[0]
                 self.assertIsInstance(first_posting.doc_id, int, "Document ID should be an integer")
 
-                # Ensure postings are correctly merged without duplicates
+                # Verify document IDs are within valid range
+                for posting in postings:
+                    self.assertGreater(posting.doc_id, 0, "Document IDs should be positive integers")
+
+                # Verify postings are unique for each term
                 doc_ids = [p.doc_id for p in postings]
                 unique_doc_ids = set(doc_ids)
-                self.assertEqual(len(doc_ids), len(unique_doc_ids),
-                                 f"Duplicate document IDs found in postings for term '{term}'")
 
-            # Output performance metrics
-            print(f"\nIndex Building Performance:")
+                # Print debugging information if duplicates are found
+                if len(doc_ids) != len(unique_doc_ids):
+                    duplicate_ids = [did for did in doc_ids if doc_ids.count(did) > 1]
+                    print(f"\nDuplicate document IDs found for term '{term}':")
+                    print(f"- All doc IDs: {doc_ids}")
+                    print(f"- Duplicate IDs: {duplicate_ids}")
+
+                self.assertEqual(
+                    len(doc_ids),
+                    len(unique_doc_ids),
+                    f"Duplicate document IDs found in postings for term '{term}'. "
+                    f"Total postings: {len(doc_ids)}, Unique postings: {len(unique_doc_ids)}"
+                )
+
+            # Verify lexicon contains expected terms
+            for term in sample_terms:
+                self.assertIn(term, lexicon.get_all_terms(), f"Lexicon should contain the term '{term}'")
+
+            # Verify document table contains expected documents
+            for doc_id in all_doc_ids:
+                self.assertIn(doc_id, document_table._document_table,
+                              f"Document table should contain the document ID {doc_id}")
+
+            # Print performance metrics and index statistics
+            print(f"\nFull Index Building Performance:")
             print(f"- Build time: {build_time:.2f} seconds")
             print(f"- Total unique terms: {len(terms)}")
+            print(f"- Total unique documents: {len(all_doc_ids)}")
+            print(
+                f"- Average postings per term: {sum(len(index.get_uncompressed_postings(t)) for t in terms) / len(terms):.2f}")
             print(f"- Sample term frequencies:")
             for term in sample_terms:
-                print(f"  - '{term}': {len(index.get_compressed_postings(term))} documents")
+                postings = index.get_uncompressed_postings(term)
+                num_documents = len(postings)  # Number of documents for the term
+                sample_frequencies = [posting.payload for posting in postings]  # Get frequencies from postings
+                print(f"  - '{term}': {num_documents} documents, Frequencies: {sample_frequencies}")
 
         except Exception as e:
-            self.fail(f"Index building failed with error: {str(e)}")
+            self.fail(f"Full index building failed with error: {str(e)}")
 
     def test_build_partial_index(self):
         """Test partial index building with sampled documents"""

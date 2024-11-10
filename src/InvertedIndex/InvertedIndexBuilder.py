@@ -18,7 +18,7 @@ from Utils.Preprocessing import Preprocessing
 class InvertedIndexBuilder:
     def __init__(self, collection_loader: CollectionLoader, preprocessing: Preprocessing,
                  merger: Merger, lexicon: Lexicon, document_table: DocumentTable,
-                 chunk_size: int = 1105228) -> None:
+                 chunk_size: int = 1105228) -> None: #1105228
         """
         Initialize the InvertedIndexBuilder.
 
@@ -38,49 +38,41 @@ class InvertedIndexBuilder:
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
         """
         Process a single chunk of documents and return a partial index.
-        Ensures no duplicate postings for the same term in a document.
-
-        Args:
-            chunk: DataFrame containing document texts and IDs.
-
-        Returns:
-            InvertedIndex containing the partial index for this chunk.
+        Now includes optimized lexicon and document table updates.
         """
         if chunk is None or chunk.empty:
             return InvertedIndex()
 
         try:
             chunk_index = InvertedIndex()
-            # Preprocess the chunk
+
+            # Preprocess the chunk all at once
             tokens_list = self.preprocessing.vectorized_preprocess(chunk['text'])
 
-            # Create a temporary 'tokens' column to store the tokenized text
-            chunk['tokens'] = tokens_list
+            print("Processing chunk and updating structures...")
 
-            for _, row in chunk.iterrows():
-                doc_id = row['index']
-                text = row['text']  # Assuming 'text' is preprocessed or tokenized
-                tokens = row['tokens']  # Tokenized words
-                token_freq_map = {}  # Map to store token frequency for the document
+            # Process documents in vectorized operations where possible
+            doc_lengths = chunk['text'].str.split().str.len()
 
+            # Update document table in bulk
+            for idx, (doc_id, length) in enumerate(zip(chunk['index'], doc_lengths)):
+                self.document_table.add_document(doc_id, length, idx)
+
+            # Process tokens and update lexicon
+            for idx, (doc_id, tokens) in enumerate(zip(chunk['index'], tokens_list)):
+                if not tokens:  # Skip empty documents
+                    continue
+
+                # Count frequencies once per document
+                token_freq_map = {}
                 for token in tokens:
                     if token:  # Skip empty tokens
                         token_freq_map[token] = token_freq_map.get(token, 0) + 1
 
-                # Add postings for each token in the document
+                # Update lexicon and index in single pass
                 for token, freq in token_freq_map.items():
                     chunk_index.add_posting(token, doc_id, freq)
-
-                # Now update lexicon and document table (these should be updated after processing tokens)
-                length = len(text.split())  # Length of the document in terms
-                offset = chunk.index[chunk.index == _].tolist()[0]  # Offset of the document in the chunk
-
-                # Add to Document Table
-                self.document_table.add_document(doc_id, length, offset)
-
-                # Update Lexicon
-                for term in tokens:
-                    self.lexicon.add_term(term, position=offset, term_frequency=tokens.count(term))
+                    self.lexicon.add_term(token, position=idx, term_frequency=freq)
 
             return chunk_index
 
@@ -91,58 +83,36 @@ class InvertedIndexBuilder:
     def build_partial_indices(self, sample_df: Optional[DataFrame] = None) -> List[str]:
         """Build partial compressed indices in chunks and return their file paths."""
         try:
-            # Determine whether we're processing the entire collection or just a sample
             if sample_df is None:
-                # Full collection: process chunks
                 total_docs = self.collection_loader.get_total_docs()
                 total_chunks = (total_docs + self.chunk_size - 1) // self.chunk_size
                 print(f"Processing {total_docs} documents in {total_chunks} chunks...")
                 chunks = self.collection_loader.process_chunks(self.chunk_size)
             else:
-                # Partial index: single chunk (i.e., sample_df)
                 total_docs = len(sample_df)
                 total_chunks = 1
                 print(f"Processing {total_docs} documents in {total_chunks} chunk...")
-                chunks = [sample_df]  # Wrap sample_df in a list to treat as a single chunk
+                chunks = [sample_df]
 
             partial_indices_paths: List[str] = []
 
-            # Initialize lexicon and document table
-            self.lexicon = Lexicon()
-            self.document_table = DocumentTable()
-
             with tqdm(total=total_chunks) as pbar:
                 for chunk in chunks:
-                    # Process each chunk (it will be a DataFrame)
+                    # Process chunk and get index (lexicon and document table are updated inside process_chunk)
                     chunk_index = self.process_chunk(chunk)
-
-                    # Update lexicon and document table for each document
-                    for _, row in chunk.iterrows():
-                        doc_id = row['index']
-                        text = row['text']  # Assuming 'text' is preprocessed or tokenized
-                        length = len(text.split())  # Length of the document in terms
-                        offset = chunk.index[chunk.index == _].tolist()[0]  # Offset of the document in the chunk
-
-                        # Add to Document Table
-                        self.document_table.add_document(doc_id, length, offset)
-
-                        # Assuming terms are already extracted from text by process_chunk
-                        terms = row['tokens']  # 'tokens' column from the processed chunk
-                        for term in terms:
-                            self.lexicon.add_term(term, position=offset, term_frequency=terms.count(term))
 
                     # Write the partial compressed index to a file
                     chunk_index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
                     chunk_index.write_index_compressed_to_file(chunk_index_path)
                     partial_indices_paths.append(chunk_index_path)
 
-                    # Clean up memory after processing the chunk
+                    # Clean up memory
                     del chunk
                     del chunk_index
                     gc.collect()
                     pbar.update(1)
 
-                return partial_indices_paths
+            return partial_indices_paths
 
         except Exception as e:
             print(f"Error building partial indices: {str(e)}")
