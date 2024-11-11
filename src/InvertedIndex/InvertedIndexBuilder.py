@@ -24,7 +24,6 @@ class InvertedIndexBuilder:
             merger: Merger,
             lexicon: Lexicon,
             document_table: DocumentTable,
-            initial_chunk_size: int = 500000,
     ) -> None:
         """
         Initialize the InvertedIndexBuilder with necessary components.
@@ -35,12 +34,10 @@ class InvertedIndexBuilder:
             merger: Component for merging indices
             lexicon: Lexicon component for term management
             document_table: Document metadata storage
-            initial_chunk_size: Initial number of documents per chunk
         """
         self.collection_loader = collection_loader
         self.preprocessing = preprocessing
         self.compressed_inverted_index = CompressedInvertedIndex()
-        self.initial_chunk_size = initial_chunk_size
         self.merger = merger
         self.lexicon = lexicon
         self.document_table = document_table
@@ -114,8 +111,8 @@ class InvertedIndexBuilder:
             total_memory_used = initial_memory - post_process_memory
             memory_per_doc = total_memory_used / sample_size
 
-            # Calculate safe chunk size (targeting 90% of available memory)
-            target_memory = total_memory * 0.9
+            # Calculate safe chunk size (targeting 80% of available memory)
+            target_memory = total_memory * 0.8
             estimated_chunk_size = int(target_memory / memory_per_doc)
 
             return MemoryProfile(memory_per_doc=memory_per_doc, estimated_chunk_size=estimated_chunk_size)
@@ -185,7 +182,7 @@ class InvertedIndexBuilder:
 
                 if current_available < memory_profile.memory_per_doc * current_chunk_size:
                     # Reduce chunk size if memory is tight
-                    current_chunk_size = int(current_available * 0.9 / memory_profile.memory_per_doc)
+                    current_chunk_size = int(current_available * 0.8 / memory_profile.memory_per_doc)
                     print(f"Adjusting chunk size to {current_chunk_size} due to memory constraints")
 
                 current_chunk = self.collection_loader.process_single_chunk(
@@ -287,6 +284,7 @@ class InvertedIndexBuilder:
                 del chunk
                 del chunk_index
                 gc.collect()
+                pbar.update(1)
 
         return partial_indices_paths
 

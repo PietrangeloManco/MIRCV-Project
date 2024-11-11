@@ -1,7 +1,6 @@
 import struct
 from typing import List
 from InvertedIndex.Posting import Posting
-from Lexicon.Lexicon import Lexicon
 from Utils.CompressionTools import CompressionTools
 
 class CompressedInvertedIndex:
@@ -104,26 +103,3 @@ class CompressedInvertedIndex:
         compressed_data = CompressionTools.p_for_delta_compress(doc_ids, frequencies)
         self.add_compressed_postings(term, compressed_data)
 
-    def get_postings_using_lexicon(self, term: str, lexicon: Lexicon) -> List[Posting]:
-        """
-        Fetches and decompresses postings for a term using the position information from the lexicon.
-
-        Args:
-            term (str): The term to look up.
-            lexicon (Lexicon): The lexicon object to use for term metadata.
-
-        Returns:
-            List[Posting]: A list of Posting objects, or an empty list if the term is not found.
-        """
-        term_info = lexicon.get_term_info(term)
-        if not term_info:
-            return []  # Term not found in the lexicon
-
-        # Directly access the compressed data from the in-memory index
-        compressed_data = self._compressed_index.get(term)
-        if not compressed_data:
-            return []  # No postings found for the term
-
-        # Decompress the postings
-        doc_ids, frequencies = CompressionTools.p_for_delta_decompress(compressed_data)
-        return [Posting(doc_id=doc_id, payload=freq) for doc_id, freq in zip(doc_ids, frequencies)]

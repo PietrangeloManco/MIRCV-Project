@@ -10,13 +10,15 @@ from tqdm import tqdm
 import unicodedata
 
 class Preprocessing:
-    def __init__(self, use_cache: bool = True) -> None:
+    def __init__(self, use_cache: bool = True, stopwords_flag: bool = True, stem_flag: bool = True) -> None:
         self.stop_words = set(stopwords.words('english'))
         self.stemmer = PorterStemmer()
         self.use_cache = use_cache
+        self.stopwords_flag = stopwords_flag
+        self.stem_flag = stem_flag
 
     @staticmethod
-    @lru_cache(maxsize=1000)
+    @lru_cache
     def clean_text(text: str) -> str:
         if not text:
             return ""
@@ -46,9 +48,9 @@ class Preprocessing:
 
     def _process_text_helper(self, args: tuple) -> List[str]:
         text, stopwords_flag, stem_flag = args
-        return self._single_text_preprocess(text, stopwords_flag, stem_flag)
+        return self.single_text_preprocess(text)
 
-    def _single_text_preprocess(self, text: str, stopwords_flag: bool = True, stem_flag: bool = True) -> List[str]:
+    def single_text_preprocess(self, text: str) -> List[str]:
         try:
             if not text:
                 return []
@@ -56,10 +58,10 @@ class Preprocessing:
             text = self.clean_text(text)
             tokens = self.tokenize(text)
 
-            if stopwords_flag:
+            if self.stopwords_flag:
                 tokens = self.remove_stopwords(tokens)
 
-            if stem_flag:
+            if self.stem_flag:
                 tokens = self.stem_tokens(tokens)
 
             return tokens
@@ -69,13 +71,11 @@ class Preprocessing:
             return []
 
     def vectorized_preprocess(self,
-                              texts: Union[pd.Series, List[str]],
-                              stopwords_flag: bool = True,
-                              stem_flag: bool = True) -> List[List[str]]:
+                              texts: Union[pd.Series, List[str]],) -> List[List[str]]:
         if isinstance(texts, pd.Series):
             texts = texts.tolist()
 
-        args = [(text, stopwords_flag, stem_flag) for text in texts]
+        args = [(text, self.stopwords_flag, self.stem_flag) for text in texts]
 
         with Pool(cpu_count() - 1) as pool:
             all_preprocessed = list(tqdm(

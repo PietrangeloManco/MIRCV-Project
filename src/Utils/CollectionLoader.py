@@ -1,4 +1,6 @@
+import sys
 from typing import List, Iterator
+
 from pandas import DataFrame
 import random
 import pandas as pd
@@ -122,3 +124,30 @@ class CollectionLoader:
         sample_df = sample_df.sort_values(by='index').reset_index(drop=True)
 
         return sample_df
+
+    def get_documents_by_ids(self, docids: List[int]) -> List[str]:
+        """
+        Retrieves the documents corresponding to the given list of docids.
+
+        Args:
+            docids: List of document IDs to retrieve.
+
+        Returns:
+            List of str: A list of document texts.
+        """
+        documents = []
+        # Iterate over chunks of the collection
+        for chunk in self.process_chunks(sys.maxsize):
+            # Filter the chunk for matching docids
+            matching_docs = chunk[chunk['index'].isin(docids)]
+
+            # If matching documents exist in this chunk, extract the text
+            if not matching_docs.empty:
+                documents.extend(matching_docs['text'].tolist())
+
+            # If we've found all documents, we can stop early
+            if len(documents) == len(docids):
+                break
+
+        # Return the list of document texts (or a message if not found)
+        return documents if documents else ["Not existing document" for _ in docids]

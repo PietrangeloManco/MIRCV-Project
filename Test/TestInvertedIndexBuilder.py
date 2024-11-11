@@ -14,7 +14,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
     def setUpClass(cls):
         """Set up shared test fixtures for CollectionLoader and Preprocessing."""
         cls.collection_loader = CollectionLoader()
-        cls.preprocessing = Preprocessing()
+        cls.preprocessing = Preprocessing(stopwords_flag=False,stem_flag=False)
         cls.merger = Merger()
         cls.document_table = DocumentTable()
         cls.lexicon = Lexicon()
@@ -40,7 +40,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
             # Step 2: Build the full index, lexicon, and document table
             print("Building the full index, lexicon, and document table...")
-            self.index_builder.build_full_index(True, 500000)
+            self.index_builder.build_full_index()
             index = self.index_builder.get_index()
             lexicon = self.index_builder.get_lexicon()  # Assuming the lexicon is accessible
             document_table = self.index_builder.get_document_table()  # Assuming the document table is accessible
@@ -72,7 +72,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
                 position = term_info['position']
 
                 # Use the position to fetch postings from the inverted index
-                postings = index.get_postings_using_lexicon(term, lexicon)
+                postings = index.get_uncompressed_postings(term)
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}' at position {position}")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
 
@@ -156,7 +156,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
                 position = term_info['position']
 
                 # Use the position to fetch postings from the inverted index
-                postings = index.get_postings_using_lexicon(term, lexicon)
+                postings = index.get_uncompressed_postings(term)
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}' at position {position}")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
 
