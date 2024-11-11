@@ -2,7 +2,6 @@ import os
 from typing import List, Optional
 import pandas as pd
 import gc
-
 from pandas import DataFrame
 from tqdm import tqdm
 
@@ -12,176 +11,262 @@ from InvertedIndex.InvertedIndex import InvertedIndex
 from InvertedIndex.Merger import Merger
 from Lexicon.Lexicon import Lexicon
 from Utils.CollectionLoader import CollectionLoader
+from Utils.MemoryProfile import MemoryProfile
+from Utils.MemoryTrackingTools import MemoryTrackingTools
 from Utils.Preprocessing import Preprocessing
 
 
 class InvertedIndexBuilder:
-    def __init__(self, collection_loader: CollectionLoader, preprocessing: Preprocessing,
-                 merger: Merger, lexicon: Lexicon, document_table: DocumentTable,
-                 chunk_size: int = 500000) -> None: #1105228
+    def __init__(
+            self,
+            collection_loader: CollectionLoader,
+            preprocessing: Preprocessing,
+            merger: Merger,
+            lexicon: Lexicon,
+            document_table: DocumentTable,
+            initial_chunk_size: int = 500000,
+    ) -> None:
         """
-        Initialize the InvertedIndexBuilder.
+        Initialize the InvertedIndexBuilder with necessary components.
 
         Args:
-            collection_loader: Loader for the document collection.
-            preprocessing: Text preprocessing utilities.
-            chunk_size: Number of documents to process in each chunk.
+            collection_loader: Loader for the document collection
+            preprocessing: Text preprocessing utilities
+            merger: Component for merging indices
+            lexicon: Lexicon component for term management
+            document_table: Document metadata storage
+            initial_chunk_size: Initial number of documents per chunk
         """
         self.collection_loader = collection_loader
         self.preprocessing = preprocessing
         self.compressed_inverted_index = CompressedInvertedIndex()
-        self.chunk_size = chunk_size
+        self.initial_chunk_size = initial_chunk_size
         self.merger = merger
         self.lexicon = lexicon
         self.document_table = document_table
+        self.memory_tools = MemoryTrackingTools()
 
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
         """
-        Process a single chunk of documents and return a partial index.
-        Now includes optimized lexicon and document table updates.
+        Process a chunk of documents into a partial index.
+
+        Args:
+            chunk: DataFrame containing documents to process
+
+        Returns:
+            Partial inverted index for the chunk
         """
         if chunk is None or chunk.empty:
             return InvertedIndex()
 
+        chunk_index = InvertedIndex()
+        tokens_list = self.preprocessing.vectorized_preprocess(chunk['text'])
+
+        # Update document table with lengths
+        doc_lengths = chunk['text'].str.split().str.len()
+        for doc_id, length, idx in zip(chunk['index'], doc_lengths, range(len(chunk))):
+            self.document_table.add_document(doc_id, length, idx)
+
+        # Build frequency maps and update lexicon
+        for doc_id, tokens, idx in zip(chunk['index'], tokens_list, range(len(chunk))):
+            if not tokens:
+                continue
+
+            token_freq_map = {}
+            for token in tokens:
+                if token:
+                    token_freq_map[token] = token_freq_map.get(token, 0) + 1
+
+            for token, freq in token_freq_map.items():
+                chunk_index.add_posting(token, doc_id, freq)
+                self.lexicon.add_term(token, position=idx, term_frequency=freq)
+
+        return chunk_index
+
+    def profile_memory_usage(self, sample_size: int) -> 'MemoryProfile':
+        """
+        Profile memory usage by processing a small sample to estimate
+        total memory requirements including processing overhead.
+
+        Args:
+            sample_size: Number of documents to use for profiling
+
+        Returns:
+            MemoryProfile with memory usage estimates
+        """
+        # Measure initial memory state
+        initial_memory = self.memory_tools.get_available_memory()
+        total_memory = self.memory_tools.get_total_memory()
+        gc.collect()  # Clean up before profiling
+
+        # Process sample and measure memory impact
         try:
-            chunk_index = InvertedIndex()
+            sample_chunk = self.collection_loader.process_single_chunk(0, sample_size)
 
-            # Preprocess the chunk all at once
-            tokens_list = self.preprocessing.vectorized_preprocess(chunk['text'])
+            # Process the sample and measure total memory impact
+            _ = self.process_chunk(sample_chunk)
+            post_process_memory = self.memory_tools.get_available_memory()
 
-            print("Processing chunk and updating structures...")
+            # Calculate memory usage per document including overhead
+            total_memory_used = initial_memory - post_process_memory
+            memory_per_doc = total_memory_used / sample_size
 
-            # Process documents in vectorized operations where possible
-            doc_lengths = chunk['text'].str.split().str.len()
+            # Calculate safe chunk size (targeting 90% of available memory)
+            target_memory = total_memory * 0.9
+            estimated_chunk_size = int(target_memory / memory_per_doc)
 
-            # Update document table in bulk
-            for idx, (doc_id, length) in enumerate(zip(chunk['index'], doc_lengths)):
-                self.document_table.add_document(doc_id, length, idx)
+            return MemoryProfile(memory_per_doc=memory_per_doc, estimated_chunk_size=estimated_chunk_size)
 
-            # Process tokens and update lexicon
-            for idx, (doc_id, tokens) in enumerate(zip(chunk['index'], tokens_list)):
-                if not tokens:  # Skip empty documents
-                    continue
+        finally:
+            # Clean up profiling data
+            gc.collect()
 
-                # Count frequencies once per document
-                token_freq_map = {}
-                for token in tokens:
-                    if token:  # Skip empty tokens
-                        token_freq_map[token] = token_freq_map.get(token, 0) + 1
+    def _process_and_save_chunk(self, chunk: DataFrame, index_num: int) -> str:
+        """Process a chunk and save its compressed index."""
+        chunk_index = self.process_chunk(chunk)
+        index_path = f'Compressed_Index_{index_num}.vb'
+        chunk_index.write_index_compressed_to_file(index_path)
 
-                # Update lexicon and index in single pass
-                for token, freq in token_freq_map.items():
-                    chunk_index.add_posting(token, doc_id, freq)
-                    self.lexicon.add_term(token, position=idx, term_frequency=freq)
+        del chunk_index
+        gc.collect()
 
-            return chunk_index
-
-        except Exception as e:
-            print(f"Error processing chunk: {str(e)}")
-            return InvertedIndex()
+        return index_path
 
     def build_partial_indices(self, sample_df: Optional[DataFrame] = None) -> List[str]:
-        """Build partial compressed indices in chunks and return their file paths."""
-        try:
-            if sample_df is None:
-                total_docs = self.collection_loader.get_total_docs()
-                total_chunks = (total_docs + self.chunk_size - 1) // self.chunk_size
-                print(f"Processing {total_docs} documents in {total_chunks} chunks...")
-                chunks = self.collection_loader.process_chunks(self.chunk_size)
-            else:
-                total_docs = len(sample_df)
-                total_chunks = 1
-                print(f"Processing {total_docs} documents in {total_chunks} chunk...")
-                chunks = [sample_df]
+        """
+        Build partial compressed indices with dynamic chunk sizing based on memory profiling.
+        Estimates total memory usage including processing overhead using a small sample.
 
-            partial_indices_paths: List[str] = []
+        Args:
+            sample_df: Optional DataFrame for testing/development
 
-            with tqdm(total=total_chunks) as pbar:
-                for chunk in chunks:
-                    # Process chunk and get index (lexicon and document table are updated inside process_chunk)
-                    chunk_index = self.process_chunk(chunk)
+        Returns:
+            List of paths to partial indices
+        """
+        if sample_df is not None:
+            return [self._process_and_save_chunk(sample_df, 1)]
 
-                    # Write the partial compressed index to a file
-                    chunk_index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
-                    chunk_index.write_index_compressed_to_file(chunk_index_path)
-                    partial_indices_paths.append(chunk_index_path)
+        total_docs = self.collection_loader.get_total_docs()
+        print(f"Processing {total_docs} documents...")
 
-                    # Clean up memory
-                    del chunk
-                    del chunk_index
-                    gc.collect()
-                    pbar.update(1)
+        # Run memory profiling on a small sample to estimate total memory impact
+        sample_size = min(10000, total_docs)  # Use 1000 docs or fewer for estimation
+        initial_memory = self.memory_tools.get_available_memory()
+        print(f"Initial available memory: {initial_memory} bytes")
 
-            return partial_indices_paths
+        # Profile memory usage including processing overhead
+        memory_profile = self.profile_memory_usage(sample_size)
+        if memory_profile.estimated_chunk_size <= 0:
+            raise RuntimeError("Not enough memory to process even a minimal chunk")
 
-        except Exception as e:
-            print(f"Error building partial indices: {str(e)}")
-            raise
+        print(f"Memory profiling results:")
+        print(f"- Memory per document (with overhead): {memory_profile.memory_per_doc / 1024 / 1024:.2f} MB")
+        print(f"- Recommended chunk size: {memory_profile.estimated_chunk_size} documents")
+
+        # Process the collection in chunks
+        partial_indices_paths: List[str] = []
+        chunk_start = 0
+
+        with tqdm(total=total_docs) as pbar:
+            while chunk_start < total_docs:
+                # Adjust chunk size based on available memory
+                current_available = self.memory_tools.get_available_memory()
+                current_chunk_size = min(
+                    memory_profile.estimated_chunk_size,
+                    total_docs - chunk_start
+                )
+
+                if current_available < memory_profile.memory_per_doc * current_chunk_size:
+                    # Reduce chunk size if memory is tight
+                    current_chunk_size = int(current_available * 0.9 / memory_profile.memory_per_doc)
+                    print(f"Adjusting chunk size to {current_chunk_size} due to memory constraints")
+
+                current_chunk = self.collection_loader.process_single_chunk(
+                    chunk_start,
+                    current_chunk_size
+                )
+
+                # Process and save the chunk
+                index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
+                chunk_index = self.process_chunk(current_chunk)
+                chunk_index.write_index_compressed_to_file(index_path)
+                partial_indices_paths.append(index_path)
+
+                # Clean up memory
+                del current_chunk
+                del chunk_index
+                gc.collect()
+
+                chunk_start += current_chunk_size
+                pbar.update(current_chunk_size)
+
+        return partial_indices_paths
 
     def build_full_index(self) -> None:
-        """Build the full inverted index by merging partial indices."""
+        """Build and save the complete inverted index."""
         try:
             partial_indices_paths = self.build_partial_indices()
 
-            # Optionally write the lexicon and document table after getting the partial indices
-            self.lexicon.write_to_file("final_lexicon.txt")
-            self.document_table.write_to_file("final_document_table.txt")
+            # Save auxiliary structures
+            self.lexicon.write_to_file("Lexicon")
+            self.document_table.write_to_file("DocumentTable")
 
+            # Merge indices
             print("Merging indices...")
-            # Merge all partial indices if needed
-            self.compressed_inverted_index = self.merger.merge_multiple_compressed_indices(partial_indices_paths)
+            self.compressed_inverted_index = self.merger.merge_multiple_compressed_indices(
+                partial_indices_paths
+            )
 
-            total_terms = len(self.compressed_inverted_index.get_terms())
-            print(f"Index built successfully with {total_terms} unique terms.")
-
-            # Write the final compressed inverted index
+            # Save final index and clean up
             self.compressed_inverted_index.write_compressed_index_to_file("InvertedIndex")
-
-            # Optionally, delete intermediate files
             self._delete_partial_indices(partial_indices_paths)
+
+            print(f"Index built successfully with {len(self.compressed_inverted_index.get_terms())} unique terms.")
 
         except Exception as e:
             print(f"Error building full index: {str(e)}")
             raise
 
-    @staticmethod
-    def _delete_partial_indices(partial_indices_paths: List[str]) -> None:
-        """Delete the intermediate index files from disk."""
-        for path in partial_indices_paths:
-            os.remove(path)
-            print(f"Deleted intermediate index file: {path}")
+    def build_partial_index(self, sample_size: int = 10000) -> None:
+        """
+        Build a sample index for testing/development.
 
-    def build_partial_index(self) -> None:
-        """Build a partial inverted index using a sample of documents."""
+        Args:
+            sample_size: Number of documents to sample
+        """
         try:
-            # Sample a subset of documents for partial indexing
-            sample_df = self.collection_loader.sample_lines(10000)
-            partial_inverted_index = (
-                self.compressed_inverted_index.load_compressed_index_to_memory(self.build_partial_indices(sample_df)[0]))
+            sample_df = self.collection_loader.sample_lines(sample_size)
+            index_path = self.build_partial_indices(sample_df)[0]
 
-            self.compressed_inverted_index = partial_inverted_index
+            self.compressed_inverted_index = (
+                self.compressed_inverted_index.load_compressed_index_to_memory(index_path)
+            )
 
-            print(f"Partial index built with {len(partial_inverted_index.get_terms())} unique terms.")
-
-            # Write the lexicon and document table for the partial index
+            # Save auxiliary structures
             self.lexicon.write_to_file("partial_lexicon.txt")
             self.document_table.write_to_file("partial_document_table.txt")
 
-            # Optionally, clean up any intermediate files if needed
-            # self._delete_partial_indices(partial_indices_paths)
+            print(f"Partial index built with {len(self.compressed_inverted_index.get_terms())} unique terms.")
 
         except Exception as e:
             print(f"Error building partial index: {str(e)}")
             raise
 
+    @staticmethod
+    def _delete_partial_indices(partial_indices_paths: List[str]) -> None:
+        """Clean up intermediate index files."""
+        for path in partial_indices_paths:
+            os.remove(path)
+            print(f"Deleted intermediate index file: {path}")
+
     def get_index(self) -> CompressedInvertedIndex:
-        """Get the built inverted index."""
+        """Return the built inverted index."""
         return self.compressed_inverted_index
 
     def get_lexicon(self) -> Lexicon:
-        """Get the built inverted index."""
+        """Return the lexicon component."""
         return self.lexicon
 
     def get_document_table(self) -> DocumentTable:
-        """Get the built inverted index."""
+        """Return the document table component."""
         return self.document_table

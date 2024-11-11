@@ -17,26 +17,26 @@ class Merger:
             return postings1
 
         # Decompress both postings lists (assuming postings are a list of (doc_id, frequency) tuples)
-        doc_ids1, freqs1 = CompressionTools.pfor_delta_decompress(postings1)
-        doc_ids2, freqs2 = CompressionTools.pfor_delta_decompress(postings2)
+        doc_ids1, frequencies1 = CompressionTools.p_for_delta_decompress(postings1)
+        doc_ids2, frequencies2 = CompressionTools.p_for_delta_decompress(postings2)
 
         # Merging: use a dictionary to sum frequencies for the same doc_id
-        merged_freqs = defaultdict(int)
+        merged_frequencies = defaultdict(int)
 
         # Add frequencies from the first posting list
-        for doc_id, freq in zip(doc_ids1, freqs1):
-            merged_freqs[doc_id] += freq
+        for doc_id, freq in zip(doc_ids1, frequencies1):
+            merged_frequencies[doc_id] += freq
 
         # Add frequencies from the second posting list
-        for doc_id, freq in zip(doc_ids2, freqs2):
-            merged_freqs[doc_id] += freq
+        for doc_id, freq in zip(doc_ids2, frequencies2):
+            merged_frequencies[doc_id] += freq
 
         # Convert the merged dictionary back to sorted lists of doc_ids and frequencies
-        merged_doc_ids = sorted(merged_freqs.keys())
-        merged_freqs_list = [merged_freqs[doc_id] for doc_id in merged_doc_ids]
+        merged_doc_ids = sorted(merged_frequencies.keys())
+        merged_frequencies_list = [merged_frequencies[doc_id] for doc_id in merged_doc_ids]
 
         # Compress the merged lists and return the result
-        return CompressionTools.pfor_delta_compress(merged_doc_ids, merged_freqs_list)
+        return CompressionTools.p_for_delta_compress(merged_doc_ids, merged_frequencies_list)
 
     def _merge_two_indices(self, index1: CompressedInvertedIndex, index2: CompressedInvertedIndex) -> CompressedInvertedIndex:
         """Helper function to merge two compressed indices, summing frequencies during merge."""

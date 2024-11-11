@@ -85,7 +85,7 @@ class CompressedInvertedIndex:
         """
         compressed_postings = self.get_compressed_postings(term)
         if compressed_postings:
-            doc_ids, frequencies = CompressionTools.pfor_delta_decompress(compressed_postings)
+            doc_ids, frequencies = CompressionTools.p_for_delta_decompress(compressed_postings)
             # Convert doc_ids and frequencies to a list of Posting objects
             list_postings = [Posting(doc_id=doc_id, payload=freq) for doc_id, freq in zip(doc_ids, frequencies)]
             return list_postings
@@ -101,7 +101,7 @@ class CompressedInvertedIndex:
             frequencies: A list of term frequencies corresponding to the doc IDs.
         """
         # Compress doc_ids and frequencies together
-        compressed_data = CompressionTools.pfor_delta_compress(doc_ids, frequencies)
+        compressed_data = CompressionTools.p_for_delta_compress(doc_ids, frequencies)
         self.add_compressed_postings(term, compressed_data)
 
     def get_postings_using_lexicon(self, term: str, lexicon: Lexicon) -> List[Posting]:
@@ -125,5 +125,5 @@ class CompressedInvertedIndex:
             return []  # No postings found for the term
 
         # Decompress the postings
-        doc_ids, frequencies = CompressionTools.pfor_delta_decompress(compressed_data)
+        doc_ids, frequencies = CompressionTools.p_for_delta_decompress(compressed_data)
         return [Posting(doc_id=doc_id, payload=freq) for doc_id, freq in zip(doc_ids, frequencies)]

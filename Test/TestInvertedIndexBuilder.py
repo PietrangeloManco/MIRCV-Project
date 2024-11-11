@@ -122,10 +122,10 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             print(f"Total documents loaded: {total_docs}")
 
             print("Step 2: Loading lexicon and document table into memory...")
-            lexicon = Lexicon.load_from_file("final_lexicon.txt")
+            lexicon = Lexicon.load_from_file("Lexicon")
             print("Lexicon loaded.")
 
-            document_table = DocumentTable.load_from_file("final_document_table.txt")
+            document_table = DocumentTable.load_from_file("DocumentTable")
             print("Document table loaded.")
 
             # Initialize the inverted index without loading all data

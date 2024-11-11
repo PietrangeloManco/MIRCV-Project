@@ -69,7 +69,7 @@ class InvertedIndex:
                 # Read the compressed doc_ids
                 compressed_length = struct.unpack("I", f.read(4))[0]
                 compressed_doc_ids = f.read(compressed_length)
-                doc_ids, frequencies = CompressionTools.pfor_delta_decompress(compressed_doc_ids)
+                doc_ids, frequencies = CompressionTools.p_for_delta_decompress(compressed_doc_ids)
                 # Add the postings to the index (without payload for now)
                 for doc_id, frequency in zip(doc_ids, frequencies):
                     index.add_posting(term, doc_id, frequency)
@@ -87,7 +87,7 @@ class InvertedIndex:
 
                 doc_ids = [posting.doc_id for posting in postings]
                 frequencies = [posting.payload for posting in postings]
-                compressed_doc_ids = CompressionTools.pfor_delta_compress(doc_ids, frequencies)
+                compressed_doc_ids = CompressionTools.p_for_delta_compress(doc_ids, frequencies)
 
                 # Write the compressed doc_ids
                 f.write(struct.pack("I", len(compressed_doc_ids)))

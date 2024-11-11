@@ -4,7 +4,7 @@ from typing import List, Tuple
 class CompressionTools:
 
     @staticmethod
-    def pfor_delta_decompress(data: bytes) -> Tuple[List[int], List[int]]:
+    def p_for_delta_decompress(data: bytes) -> Tuple[List[int], List[int]]:
         """Decompresses data into a list of doc IDs and term frequencies."""
         if len(data) == 0:
             return [], []  # Handle empty data gracefully
@@ -45,7 +45,7 @@ class CompressionTools:
         return doc_ids, frequencies
 
     @staticmethod
-    def pfor_delta_compress(doc_ids: List[int], frequencies: List[int]) -> bytes:
+    def p_for_delta_compress(doc_ids: List[int], frequencies: List[int]) -> bytes:
         """Compresses a list of doc IDs and term frequencies into a byte array."""
         if len(doc_ids) != len(frequencies):
             raise ValueError("doc_ids and frequencies lists must be of the same length.")

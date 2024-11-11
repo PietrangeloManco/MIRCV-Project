@@ -17,13 +17,13 @@ class TestMerger(unittest.TestCase):
 
         # Let's create some simple postings data (doc_id, frequency)
         doc_ids1 = [1, 2, 3]
-        freqs1 = [1, 2, 3]
+        frequencies1 = [1, 2, 3]
         doc_ids2 = [2, 3, 4]
-        freqs2 = [4, 5, 6]
+        frequencies2 = [4, 5, 6]
 
         # Compress the postings using PForDelta compression
-        self.postings1 = CompressionTools.pfor_delta_compress(doc_ids1, freqs1)
-        self.postings2 = CompressionTools.pfor_delta_compress(doc_ids2, freqs2)
+        self.postings1 = CompressionTools.p_for_delta_compress(doc_ids1, frequencies1)
+        self.postings2 = CompressionTools.p_for_delta_compress(doc_ids2, frequencies2)
 
         # Create two instances of CompressedInvertedIndex
         self.index1 = CompressedInvertedIndex()
@@ -40,13 +40,13 @@ class TestMerger(unittest.TestCase):
         merged_postings = self.merger._merge_compressed_postings(self.postings1, self.postings2)
 
         # Decompress the merged postings to check if they are correct
-        doc_ids, freqs = CompressionTools.pfor_delta_decompress(merged_postings)
+        doc_ids, frequencies = CompressionTools.p_for_delta_decompress(merged_postings)
 
         # Check that the doc_ids are merged correctly
         self.assertEqual(doc_ids, [1, 2, 3, 4])  # Combined doc_ids from both postings
 
         # Check that the frequencies are summed correctly
-        self.assertEqual(freqs, [1, 6, 8, 6])  # Frequencies should be summed where doc_ids are the same
+        self.assertEqual(frequencies, [1, 6, 8, 6])  # Frequencies should be summed where doc_ids are the same
 
     def test_merge_two_indices(self):
         """Test merging two indices."""
@@ -59,19 +59,19 @@ class TestMerger(unittest.TestCase):
 
         # Check that the postings for term1 are correctly merged
         merged_postings = merged_index.get_compressed_postings(self.term1)
-        doc_ids, freqs = CompressionTools.pfor_delta_decompress(merged_postings)
+        doc_ids, frequencies = CompressionTools.p_for_delta_decompress(merged_postings)
 
         # Verify that doc_ids are merged and frequencies summed
         self.assertEqual(doc_ids, [1, 2, 3, 4])
-        self.assertEqual(freqs, [1, 6, 8, 6])
+        self.assertEqual(frequencies, [1, 6, 8, 6])
 
     def test_merge_multiple_compressed_indices(self):
         """Test merging multiple indices."""
         # Create some additional test data for the third index
         term3 = "cherry"
         doc_ids3 = [3, 4, 5]
-        freqs3 = [7, 8, 9]
-        postings3 = CompressionTools.pfor_delta_compress(doc_ids3, freqs3)
+        frequencies3 = [7, 8, 9]
+        postings3 = CompressionTools.p_for_delta_compress(doc_ids3, frequencies3)
 
         # Create a third index
         index3 = CompressedInvertedIndex()
