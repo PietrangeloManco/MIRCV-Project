@@ -18,7 +18,7 @@ from Utils.Preprocessing import Preprocessing
 class InvertedIndexBuilder:
     def __init__(self, collection_loader: CollectionLoader, preprocessing: Preprocessing,
                  merger: Merger, lexicon: Lexicon, document_table: DocumentTable,
-                 chunk_size: int = 1105228) -> None: #1105228
+                 chunk_size: int = 500000) -> None: #1105228
         """
         Initialize the InvertedIndexBuilder.
 
@@ -123,16 +123,16 @@ class InvertedIndexBuilder:
         try:
             partial_indices_paths = self.build_partial_indices()
 
+            # Optionally write the lexicon and document table after getting the partial indices
+            self.lexicon.write_to_file("final_lexicon.txt")
+            self.document_table.write_to_file("final_document_table.txt")
+
             print("Merging indices...")
             # Merge all partial indices if needed
             self.compressed_inverted_index = self.merger.merge_multiple_compressed_indices(partial_indices_paths)
 
             total_terms = len(self.compressed_inverted_index.get_terms())
             print(f"Index built successfully with {total_terms} unique terms.")
-
-            # Optionally write the lexicon and document table after merging indices
-            self.lexicon.write_to_file("final_lexicon.txt")
-            self.document_table.write_to_file("final_document_table.txt")
 
             # Write the final compressed inverted index
             self.compressed_inverted_index.write_compressed_index_to_file("InvertedIndex")
