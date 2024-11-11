@@ -62,21 +62,24 @@ class InvertedIndexBuilder:
         chunk_index = InvertedIndex()
         tokens_list = self.preprocessing.vectorized_preprocess(chunk['text'])
 
-        # Update document table with lengths
         doc_lengths = chunk['text'].str.split().str.len()
-        for doc_id, length, idx in zip(chunk['index'], doc_lengths, range(len(chunk))):
+
+        # Update document table in bulk
+        for idx, (doc_id, length) in enumerate(zip(chunk['index'], doc_lengths)):
             self.document_table.add_document(doc_id, length, idx)
 
-        # Build frequency maps and update lexicon
-        for doc_id, tokens, idx in zip(chunk['index'], tokens_list, range(len(chunk))):
-            if not tokens:
+        # Process tokens and update lexicon
+        for idx, (doc_id, tokens) in enumerate(zip(chunk['index'], tokens_list)):
+            if not tokens:  # Skip empty documents
                 continue
 
+            # Count frequencies once per document
             token_freq_map = {}
             for token in tokens:
-                if token:
+                if token:  # Skip empty tokens
                     token_freq_map[token] = token_freq_map.get(token, 0) + 1
 
+            # Update lexicon and index in single pass
             for token, freq in token_freq_map.items():
                 chunk_index.add_posting(token, doc_id, freq)
                 self.lexicon.add_term(token, position=idx, term_frequency=freq)
@@ -132,25 +135,29 @@ class InvertedIndexBuilder:
 
         return index_path
 
-    def build_partial_indices(self, sample_df: Optional[DataFrame] = None) -> List[str]:
+    def build_partial_indices(self, use_static_chunk_size: bool = False, static_chunk_size: Optional[int] = None) -> \
+    List[str]:
         """
-        Build partial compressed indices with dynamic chunk sizing based on memory profiling.
-        Estimates total memory usage including processing overhead using a small sample.
+        Build partial compressed indices with dynamic or static chunk sizing based on memory profiling or fixed chunk size.
 
         Args:
-            sample_df: Optional DataFrame for testing/development
+            use_static_chunk_size: Whether to use a static chunk size
+            static_chunk_size: The static chunk size to use if `use_static_chunk_size` is True
 
         Returns:
             List of paths to partial indices
         """
-        if sample_df is not None:
-            return [self._process_and_save_chunk(sample_df, 1)]
+        if use_static_chunk_size:
+            if not static_chunk_size:
+                raise ValueError("Static chunk size must be provided when using static chunk size.")
+            return self._process_with_static_chunk_size(static_chunk_size)
 
+        # Default dynamic chunk size logic (previous code)
         total_docs = self.collection_loader.get_total_docs()
         print(f"Processing {total_docs} documents...")
 
         # Run memory profiling on a small sample to estimate total memory impact
-        sample_size = min(10000, total_docs)  # Use 1000 docs or fewer for estimation
+        sample_size = min(10000, total_docs)  # Use 10000 docs or fewer for estimation
         initial_memory = self.memory_tools.get_available_memory()
         print(f"Initial available memory: {initial_memory} bytes")
 
@@ -202,10 +209,10 @@ class InvertedIndexBuilder:
 
         return partial_indices_paths
 
-    def build_full_index(self) -> None:
-        """Build and save the complete inverted index."""
+    def build_full_index(self, use_static_chunk_size: bool = False, static_chunk_size: Optional[int] = None) -> None:
+        """Build and save the complete inverted index with an optional static chunk size."""
         try:
-            partial_indices_paths = self.build_partial_indices()
+            partial_indices_paths = self.build_partial_indices(use_static_chunk_size, static_chunk_size)
 
             # Save auxiliary structures
             self.lexicon.write_to_file("Lexicon")
@@ -236,7 +243,7 @@ class InvertedIndexBuilder:
         """
         try:
             sample_df = self.collection_loader.sample_lines(sample_size)
-            index_path = self.build_partial_indices(sample_df)[0]
+            index_path = self._process_and_save_chunk(sample_df, 1)
 
             self.compressed_inverted_index = (
                 self.compressed_inverted_index.load_compressed_index_to_memory(index_path)
@@ -251,6 +258,37 @@ class InvertedIndexBuilder:
         except Exception as e:
             print(f"Error building partial index: {str(e)}")
             raise
+
+    def _process_with_static_chunk_size(self, static_chunk_size: int) -> List[str]:
+        """
+        Process and build indices using a static chunk size.
+
+        Args:
+            static_chunk_size: The static chunk size to use for processing
+
+        Returns:
+            List of paths to the partial indices
+        """
+        total_docs = self.collection_loader.get_total_docs()
+        print(f"Processing {total_docs} documents with static chunk size of {static_chunk_size}...")
+
+        partial_indices_paths: List[str] = []
+
+        with tqdm(total=total_docs) as pbar:
+            # Iterate through chunks
+            for chunk in self.collection_loader.process_chunks(static_chunk_size):
+                # Process and save the chunk
+                index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
+                chunk_index = self.process_chunk(chunk)
+                chunk_index.write_index_compressed_to_file(index_path)
+                partial_indices_paths.append(index_path)
+
+                # Clean up memory after processing the chunk
+                del chunk
+                del chunk_index
+                gc.collect()
+
+        return partial_indices_paths
 
     @staticmethod
     def _delete_partial_indices(partial_indices_paths: List[str]) -> None:

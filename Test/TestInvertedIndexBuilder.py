@@ -40,7 +40,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
             # Step 2: Build the full index, lexicon, and document table
             print("Building the full index, lexicon, and document table...")
-            self.index_builder.build_full_index()
+            self.index_builder.build_full_index(True, 500000)
             index = self.index_builder.get_index()
             lexicon = self.index_builder.get_lexicon()  # Assuming the lexicon is accessible
             document_table = self.index_builder.get_document_table()  # Assuming the document table is accessible
