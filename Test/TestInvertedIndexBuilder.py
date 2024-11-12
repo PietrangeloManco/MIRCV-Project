@@ -14,7 +14,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
     def setUpClass(cls):
         """Set up shared test fixtures for CollectionLoader and Preprocessing."""
         cls.collection_loader = CollectionLoader()
-        cls.preprocessing = Preprocessing(stopwords_flag=False,stem_flag=False)
+        cls.preprocessing = Preprocessing()
         cls.merger = Merger()
         cls.document_table = DocumentTable()
         cls.lexicon = Lexicon()

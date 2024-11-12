@@ -3,7 +3,6 @@ from typing import List, Optional
 import pandas as pd
 import gc
 from pandas import DataFrame
-from tqdm import tqdm
 
 from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
@@ -171,38 +170,36 @@ class InvertedIndexBuilder:
         partial_indices_paths: List[str] = []
         chunk_start = 0
 
-        with tqdm(total=total_docs) as pbar:
-            while chunk_start < total_docs:
-                # Adjust chunk size based on available memory
-                current_available = self.memory_tools.get_available_memory()
-                current_chunk_size = min(
-                    memory_profile.estimated_chunk_size,
-                    total_docs - chunk_start
-                )
+        while chunk_start < total_docs:
+            # Adjust chunk size based on available memory
+            current_available = self.memory_tools.get_available_memory()
+            current_chunk_size = min(
+                memory_profile.estimated_chunk_size,
+                total_docs - chunk_start
+            )
 
-                if current_available < memory_profile.memory_per_doc * current_chunk_size:
-                    # Reduce chunk size if memory is tight
-                    current_chunk_size = int(current_available * 0.8 / memory_profile.memory_per_doc)
-                    print(f"Adjusting chunk size to {current_chunk_size} due to memory constraints")
+            if current_available < memory_profile.memory_per_doc * current_chunk_size:
+                # Reduce chunk size if memory is tight
+                current_chunk_size = int(current_available * 0.8 / memory_profile.memory_per_doc)
+                print(f"Adjusting chunk size to {current_chunk_size} due to memory constraints")
 
-                current_chunk = self.collection_loader.process_single_chunk(
-                    chunk_start,
-                    current_chunk_size
-                )
+            current_chunk = self.collection_loader.process_single_chunk(
+                chunk_start,
+                current_chunk_size
+            )
 
-                # Process and save the chunk
-                index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
-                chunk_index = self.process_chunk(current_chunk)
-                chunk_index.write_index_compressed_to_file(index_path)
-                partial_indices_paths.append(index_path)
+            # Process and save the chunk
+            index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
+            chunk_index = self.process_chunk(current_chunk)
+            chunk_index.write_index_compressed_to_file(index_path)
+            partial_indices_paths.append(index_path)
 
-                # Clean up memory
-                del current_chunk
-                del chunk_index
-                gc.collect()
+            # Clean up memory
+            del current_chunk
+            del chunk_index
+            gc.collect()
 
-                chunk_start += current_chunk_size
-                pbar.update(current_chunk_size)
+            chunk_start += current_chunk_size
 
         return partial_indices_paths
 
@@ -271,20 +268,18 @@ class InvertedIndexBuilder:
 
         partial_indices_paths: List[str] = []
 
-        with tqdm(total=total_docs) as pbar:
-            # Iterate through chunks
-            for chunk in self.collection_loader.process_chunks(static_chunk_size):
-                # Process and save the chunk
-                index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
-                chunk_index = self.process_chunk(chunk)
-                chunk_index.write_index_compressed_to_file(index_path)
-                partial_indices_paths.append(index_path)
+        # Iterate through chunks
+        for chunk in self.collection_loader.process_chunks(static_chunk_size):
+            # Process and save the chunk
+            index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
+            chunk_index = self.process_chunk(chunk)
+            chunk_index.write_index_compressed_to_file(index_path)
+            partial_indices_paths.append(index_path)
 
-                # Clean up memory after processing the chunk
-                del chunk
-                del chunk_index
-                gc.collect()
-                pbar.update(1)
+            # Clean up memory after processing the chunk
+            del chunk
+            del chunk_index
+            gc.collect()
 
         return partial_indices_paths
 

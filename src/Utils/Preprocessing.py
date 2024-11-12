@@ -81,7 +81,6 @@ class Preprocessing:
             all_preprocessed = list(tqdm(
                 pool.imap(self._process_text_helper, args),
                 total=len(texts),
-                desc="Preprocessing texts"
             ))
 
         return all_preprocessed
