@@ -1,107 +1,122 @@
 import unittest
 import os
+
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 
 
 class TestCompressedInvertedIndex(unittest.TestCase):
-
     def setUp(self):
-        """Set up a sample CompressedInvertedIndex for testing."""
-        self.index = CompressedInvertedIndex()
+        self.index = CompressedInvertedIndex(chunk_size=3)  # Small chunk size for testing
 
-        # Sample data for compression
-        self.term = "test"
-        self.doc_ids = [1, 2, 3]
-        self.frequencies = [5, 10, 15]
+        # Test data
+        self.term1 = "apple"
+        self.doc_ids1 = [1, 4, 7, 10, 13]
+        self.freqs1 = [2, 1, 3, 1, 2]
 
-        # Compress and add the postings
-        self.index.compress_and_add_postings(self.term, self.doc_ids, self.frequencies)
-
-        # Test file names
-        self.compressed_file = "test_compressed_index.bin"
-        self.text_file = "test_index.txt"
+        self.term2 = "banana"
+        self.doc_ids2 = [2, 5, 8, 11, 14]
+        self.freqs2 = [1, 2, 1, 3, 1]
 
     def tearDown(self):
-        """Clean up test files after each test."""
-        if os.path.exists(self.compressed_file):
-            os.remove(self.compressed_file)
-        if os.path.exists(self.text_file):
-            os.remove(self.text_file)
+        # Clean up any test files
+        if os.path.exists("test_index.bin"):
+            os.remove("test_index.bin")
 
-    def test_add_and_get_compressed_postings(self):
-        """Test adding and retrieving compressed postings."""
-        compressed_postings = self.index.get_compressed_postings(self.term)
-        self.assertGreater(len(compressed_postings), 0)  # Ensure that there is compressed data
-        self.assertIsInstance(compressed_postings, bytes)  # Ensure that the data is in bytes
+    def test_add_and_retrieve_postings(self):
+        # Add postings
+        self.index.compress_and_add_postings(self.term1, self.doc_ids1, self.freqs1)
 
-    def test_get_uncompressed_postings(self):
-        """Test fetching and decompressing postings for a given term."""
-        postings = self.index.get_uncompressed_postings(self.term)
-        self.assertEqual(len(postings), 3)  # We added 3 postings for this term
-        self.assertEqual(postings[0].doc_id, 1)
-        self.assertEqual(postings[0].payload, 5)
-        self.assertEqual(postings[1].doc_id, 2)
-        self.assertEqual(postings[1].payload, 10)
-        self.assertEqual(postings[2].doc_id, 3)
-        self.assertEqual(postings[2].payload, 15)
+        # Test retrieval
+        postings = self.index.get_uncompressed_postings(self.term1)
 
-    def test_write_and_load_compressed_index(self):
-        """Test writing the compressed index to a file and loading it back."""
-        # Write the compressed index to a file
-        self.index.write_compressed_index_to_file(self.compressed_file)
+        # Verify results
+        self.assertEqual(len(postings), len(self.doc_ids1))
+        for i, posting in enumerate(postings):
+            self.assertEqual(posting.doc_id, self.doc_ids1[i])
+            self.assertEqual(posting.payload, self.freqs1[i])
 
-        # Load the compressed index from the file
-        loaded_index = CompressedInvertedIndex.load_compressed_index_to_memory(self.compressed_file)
+    def test_multiple_terms(self):
+        # Add multiple terms
+        self.index.compress_and_add_postings(self.term1, self.doc_ids1, self.freqs1)
+        self.index.compress_and_add_postings(self.term2, self.doc_ids2, self.freqs2)
 
-        # Check if the loaded index contains the correct term
-        compressed_data = loaded_index.get_compressed_postings(self.term)
-        self.assertGreater(len(compressed_data), 0)  # Ensure that the data exists
-
-        # Test decompression of the loaded data
-        postings = loaded_index.get_uncompressed_postings(self.term)
-        self.assertEqual(len(postings), 3)  # We added 3 postings for this term
-        self.assertEqual(postings[0].doc_id, 1)
-        self.assertEqual(postings[0].payload, 5)
-        self.assertEqual(postings[1].doc_id, 2)
-        self.assertEqual(postings[1].payload, 10)
-        self.assertEqual(postings[2].doc_id, 3)
-        self.assertEqual(postings[2].payload, 15)
-
-    def test_compress_and_add_postings(self):
-        """Test compressing and adding postings to the index."""
-        term = "example"
-        doc_ids = [4, 5, 6]
-        frequencies = [20, 25, 30]
-
-        # Compress and add new postings
-        self.index.compress_and_add_postings(term, doc_ids, frequencies)
-
-        # Check if the compressed data exists for the new term
-        compressed_data = self.index.get_compressed_postings(term)
-        self.assertGreater(len(compressed_data), 0)  # Ensure that compressed data exists
-
-        # Test decompression of the new term's data
-        postings = self.index.get_uncompressed_postings(term)
-        self.assertEqual(len(postings), 3)  # We added 3 postings
-        self.assertEqual(postings[0].doc_id, 4)
-        self.assertEqual(postings[0].payload, 20)
-        self.assertEqual(postings[1].doc_id, 5)
-        self.assertEqual(postings[1].payload, 25)
-        self.assertEqual(postings[2].doc_id, 6)
-        self.assertEqual(postings[2].payload, 30)
-
-    def test_get_terms(self):
-        """Test fetching all terms from the compressed inverted index."""
-        term = "example"
-        doc_ids = [4, 5, 6]
-        frequencies = [20, 25, 30]
-
-        # Compress and add new postings
-        self.index.compress_and_add_postings(term, doc_ids, frequencies)
-
+        # Test retrieval for both terms
         terms = list(self.index.get_terms())
-        self.assertIn("test", terms)
-        self.assertIn("example", terms)
+        self.assertEqual(len(terms), 2)
+        self.assertIn(self.term1, terms)
+        self.assertIn(self.term2, terms)
 
-if __name__ == "__main__":
+    def test_posting_list_retrieval(self):
+        # Add postings
+        self.index.compress_and_add_postings(self.term1, self.doc_ids1, self.freqs1)
+
+        # Get posting list
+        posting_list = self.index.get_posting_list(self.term1)
+
+        # Verify posting list properties
+        self.assertIsNotNone(posting_list)
+        self.assertEqual(len(posting_list.compressed_chunks), 2)  # With chunk_size=3, should have 2 chunks
+        self.assertEqual(len(posting_list.chunk_boundaries), 2)
+
+        # Verify boundaries
+        self.assertEqual(posting_list.chunk_boundaries[0][0], 1)  # First doc_id in first chunk
+        self.assertEqual(posting_list.chunk_boundaries[1][1], 13)  # Last doc_id in last chunk
+
+    def test_file_persistence(self):
+        # Add some postings
+        self.index.compress_and_add_postings(self.term1, self.doc_ids1, self.freqs1)
+        self.index.compress_and_add_postings(self.term2, self.doc_ids2, self.freqs2)
+
+        # Write to file
+        test_filename = "test_index.bin"
+        self.index.write_compressed_index_to_file(test_filename)
+
+        # Load from file
+        loaded_index = CompressedInvertedIndex.load_compressed_index_to_memory(test_filename)
+
+        # Verify loaded data
+        terms = list(loaded_index.get_terms())
+        self.assertEqual(len(terms), 2)
+
+        # Check postings for term1
+        postings1 = loaded_index.get_uncompressed_postings(self.term1)
+        self.assertEqual(len(postings1), len(self.doc_ids1))
+        for i, posting in enumerate(postings1):
+            self.assertEqual(posting.doc_id, self.doc_ids1[i])
+            self.assertEqual(posting.payload, self.freqs1[i])
+
+        # Check postings for term2
+        postings2 = loaded_index.get_uncompressed_postings(self.term2)
+        self.assertEqual(len(postings2), len(self.doc_ids2))
+        for i, posting in enumerate(postings2):
+            self.assertEqual(posting.doc_id, self.doc_ids2[i])
+            self.assertEqual(posting.payload, self.freqs2[i])
+
+    def test_nonexistent_term(self):
+        # Test retrieval of non-existent term
+        postings = self.index.get_uncompressed_postings("nonexistent")
+        self.assertEqual(len(postings), 0)
+
+        posting_list = self.index.get_posting_list("nonexistent")
+        self.assertIsNone(posting_list)
+
+    def test_merge_postings(self):
+        # Add initial postings
+        self.index.compress_and_add_postings(self.term1, [1, 4, 7], [1, 2, 3])
+
+        # Add more postings for the same term
+        self.index.compress_and_add_postings(self.term1, [10, 13], [4, 5])
+
+        # Verify merged postings
+        postings = self.index.get_uncompressed_postings(self.term1)
+        expected_doc_ids = [1, 4, 7, 10, 13]
+        expected_freqs = [1, 2, 3, 4, 5]
+
+        self.assertEqual(len(postings), len(expected_doc_ids))
+        for i, posting in enumerate(postings):
+            self.assertEqual(posting.doc_id, expected_doc_ids[i])
+            self.assertEqual(posting.payload, expected_freqs[i])
+
+
+if __name__ == '__main__':
     unittest.main()
