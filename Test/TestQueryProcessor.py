@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from DocumentTable.DocumentTable import DocumentTable
@@ -5,7 +6,6 @@ from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.QueryProcessor import QueryProcessor
-from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
 
 class TestQueryProcessor(unittest.TestCase):
@@ -29,19 +29,17 @@ class TestQueryProcessor(unittest.TestCase):
         query_type = "conjunctive"
         method = "tfidf"
 
+        start_time = time.time()
         # Call the method with a sample query and check if it's processed correctly
         ranked_docs = self.query_processor.process_query(query, query_type, method)
+        end_time = time.time()
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
 
-        # Call the get_documents_by_ids method and print the documents
-        documents = CollectionLoader().get_documents_by_ids(doc_ids)
-
+        print(f"Retrieved in {end_time - start_time}")
         # Print the documents along with their scores
-        for doc_id, document in zip(doc_ids, documents):
+        for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
-            print(f"Document Text: {document}")
-            print("-" * 40)  # Separator for readability
 
         # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
@@ -55,19 +53,17 @@ class TestQueryProcessor(unittest.TestCase):
         query_type = "disjunctive"
         method = "tfidf"
 
+        start_time = time.time()
         # Call the method with a sample query and check if it's processed correctly
         ranked_docs = self.query_processor.process_query(query, query_type, method)
+        end_time = time.time()
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
 
-        # Call the get_documents_by_ids method and print the documents
-        documents = CollectionLoader().get_documents_by_ids(doc_ids)
-
+        print(f"Retrieved in {end_time - start_time}")
         # Print the documents along with their scores
-        for doc_id, document in zip(doc_ids, documents):
+        for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
-            print(f"Document Text: {document}")
-            print("-" * 40)  # Separator for readability
 
         # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
@@ -81,19 +77,17 @@ class TestQueryProcessor(unittest.TestCase):
         query_type = "conjunctive"
         method = "bm25"
 
+        start_time = time.time()
         # Call the method with a sample query and check if it's processed correctly
         ranked_docs = self.query_processor.process_query(query, query_type, method)
+        end_time = time.time()
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
 
-        # Call the get_documents_by_ids method and print the documents
-        documents = CollectionLoader().get_documents_by_ids(doc_ids)
-
+        print(f"Retrieved in {end_time - start_time}")
         # Print the documents along with their scores
-        for doc_id, document in zip(doc_ids, documents):
+        for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
-            print(f"Document Text: {document}")
-            print("-" * 40)  # Separator for readability
 
         # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
@@ -107,20 +101,18 @@ class TestQueryProcessor(unittest.TestCase):
         query_type = "disjunctive"
         method = "bm25"
 
+        start_time = time.time()
         # Call the method with a sample query and check if it's processed correctly
         ranked_docs = self.query_processor.process_query(query, query_type, method)
+        end_time = time.time()
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
 
-        # Call the get_documents_by_ids method and print the documents
-        documents = CollectionLoader().get_documents_by_ids(doc_ids)
-
+        print(f"Retrieved in {end_time-start_time}")
         # Print the documents along with their scores
-        for doc_id, document in zip(doc_ids, documents):
+        for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
-            print(f"Document Text: {document}")
-            print("-" * 40)  # Separator for readability
-        # Add checks based on your expected outcomes
+
         self.assertIsInstance(ranked_docs, dict)
         self.assertGreater(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order

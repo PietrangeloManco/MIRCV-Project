@@ -21,6 +21,6 @@ class QueryParser:
             return []
 
         # Preprocess the query: clean, tokenize, remove stopwords, and stem
-        tokens = self.preprocessing.single_text_preprocess(query, stopwords_flag=True, stem_flag=True)
+        tokens = self.preprocessing.single_text_preprocess(query)
 
         return tokens
