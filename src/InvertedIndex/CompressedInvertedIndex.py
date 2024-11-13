@@ -1,105 +1,182 @@
 import struct
-from typing import List
+from typing import List, Optional, Tuple, Dict
+from dataclasses import dataclass
+
 from InvertedIndex.Posting import Posting
+from InvertedIndex.PostingList import PostingList
 from Utils.CompressionTools import CompressionTools
 
+
+@dataclass
+class ChunkedPostings:
+    """Helper class to store chunked posting data"""
+    chunks: List[bytes]
+    boundaries: List[Tuple[int, int]]
+
+
 class CompressedInvertedIndex:
-    def __init__(self):
-        self._compressed_index = {}
+    def __init__(self, chunk_size: int = 1000):
+        """
+        Initialize the compressed inverted index with chunked postings.
+
+        :param chunk_size: Number of postings per chunk
+        """
+        self._compressed_index: Dict[str, ChunkedPostings] = {}
+        self.chunk_size = chunk_size
+
+    def _create_posting_chunks(self, doc_ids: List[int], frequencies: List[int]) -> ChunkedPostings:
+        """
+        Create compressed chunks from doc_ids and frequencies.
+
+        :param doc_ids: List of document IDs
+        :param frequencies: List of term frequencies
+        :return: ChunkedPostings containing compressed chunks and their boundaries
+        """
+        chunks = []
+        boundaries = []
+
+        for i in range(0, len(doc_ids), self.chunk_size):
+            chunk_doc_ids = doc_ids[i:i + self.chunk_size]
+            chunk_freqs = frequencies[i:i + self.chunk_size]
+
+            # Compress the chunk
+            compressed_chunk = CompressionTools.p_for_delta_compress(chunk_doc_ids, chunk_freqs)
+
+            # Store chunk boundaries for binary search
+            boundaries.append((chunk_doc_ids[0], chunk_doc_ids[-1]))
+            chunks.append(compressed_chunk)
+
+        return ChunkedPostings(chunks=chunks, boundaries=boundaries)
 
     def write_compressed_index_to_file(self, filename: str) -> None:
-        """Writes the inverted index to a file using PForDelta compression if needed."""
+        """Writes the chunked inverted index to a file."""
         with open(filename, 'wb') as f:
-            for term, compressed_data in self._compressed_index.items():
-                # Write the term as a UTF-8 encoded string
+            for term, chunked_postings in self._compressed_index.items():
+                # Write term
                 term_bytes = term.encode('utf-8')
-                f.write(struct.pack("H", len(term_bytes)))  # Write term length (2 bytes)
-                f.write(term_bytes)  # Write term
+                f.write(struct.pack("H", len(term_bytes)))
+                f.write(term_bytes)
 
-                # Write the length of the compressed data (4 bytes)
-                f.write(struct.pack("I", len(compressed_data)))
-                f.write(compressed_data)  # Write compressed doc_ids and frequencies
+                # Write number of chunks
+                f.write(struct.pack("I", len(chunked_postings.chunks)))
+
+                # Write boundaries
+                for start_id, end_id in chunked_postings.boundaries:
+                    f.write(struct.pack("II", start_id, end_id))
+
+                # Write chunks
+                for chunk in chunked_postings.chunks:
+                    f.write(struct.pack("I", len(chunk)))
+                    f.write(chunk)
 
     @staticmethod
     def load_compressed_index_to_memory(filename: str) -> 'CompressedInvertedIndex':
-        """Loads a compressed inverted index into memory (in compressed form)."""
+        """Loads a chunked compressed inverted index from file."""
         index = CompressedInvertedIndex()
         with open(filename, 'rb') as f:
             while True:
-                # Read the term length (2 bytes)
+                # Read term length
                 term_length_bytes = f.read(2)
                 if not term_length_bytes:
-                    break  # End of file
+                    break
 
                 term_length = struct.unpack("H", term_length_bytes)[0]
-                term = f.read(term_length).decode('utf-8')  # Decode the term
+                term = f.read(term_length).decode('utf-8')
 
-                # Read the compressed doc_ids length (4 bytes)
-                compressed_length_bytes = f.read(4)
-                if not compressed_length_bytes:
-                    raise ValueError("Unexpected end of file when reading compressed length")
+                # Read number of chunks
+                num_chunks = struct.unpack("I", f.read(4))[0]
 
-                compressed_length = struct.unpack("I", compressed_length_bytes)[0]
-                compressed_data = f.read(compressed_length)
+                # Read boundaries
+                boundaries = []
+                for _ in range(num_chunks):
+                    start_id, end_id = struct.unpack("II", f.read(8))
+                    boundaries.append((start_id, end_id))
 
-                if len(compressed_data) != compressed_length:
-                    raise ValueError("Mismatch between expected and actual compressed length")
+                # Read chunks
+                chunks = []
+                for _ in range(num_chunks):
+                    chunk_length = struct.unpack("I", f.read(4))[0]
+                    chunk = f.read(chunk_length)
+                    chunks.append(chunk)
 
-                # Store the compressed data in memory
-                index._compressed_index[term] = compressed_data  # Use assignment, not append
+                index._compressed_index[term] = ChunkedPostings(chunks=chunks, boundaries=boundaries)
 
         return index
 
-    def get_compressed_postings(self, term: str) -> bytes:
-        """Fetches the compressed postings for a given term."""
-        return self._compressed_index.get(term, b'')  # Return empty bytes if term not found
-
-    def add_compressed_postings(self, term: str, compressed_postings: bytes) -> None:
+    def get_posting_list(self, term: str) -> Optional[PostingList]:
         """
-        Add compressed postings for a term to the index.
+        Returns a PostingList object for the given term.
 
-        Args:
-            term: The term for which the postings are being added.
-            compressed_postings: The compressed postings as a byte string.
+        :param term: The term to fetch the PostingList for
+        :return: A PostingList object or None if term not found
         """
+        chunked_postings = self._compressed_index.get(term)
+        if not chunked_postings:
+            return None
+
+        # Generate skip pointers (every N chunks)
+        skip_pointers = []
+        for start_id, _ in chunked_postings.boundaries[::2]:  # Skip every other chunk boundary
+            skip_pointers.append(start_id)
+
+        return PostingList(
+            compressed_chunks=chunked_postings.chunks,
+            chunk_boundaries=chunked_postings.boundaries,
+            skip_pointers=skip_pointers
+        )
+
+    def compress_and_add_postings(self, term: str, doc_ids: List[int], frequencies: List[int]) -> None:
+        """
+        Compress and add postings for a term using chunked compression.
+
+        :param term: The term for which the postings are being added
+        :param doc_ids: List of document IDs
+        :param frequencies: List of term frequencies
+        """
+        chunked_postings = self._create_posting_chunks(doc_ids, frequencies)
+
         if term in self._compressed_index:
-            # If the term already exists, concatenate the new postings
-            self._compressed_index[term] += compressed_postings
+            # Merge with existing postings
+            existing = self._compressed_index[term]
+
+            # Append new chunks and boundaries
+            existing.chunks.extend(chunked_postings.chunks)
+            existing.boundaries.extend(chunked_postings.boundaries)
+
+            # Sort chunks by doc_id boundaries if needed
+            if existing.boundaries[-2][0] > chunked_postings.boundaries[0][0]:
+                # Create pairs of (boundary, chunk) and sort them
+                pairs = list(zip(existing.boundaries, existing.chunks))
+                pairs.sort(key=lambda x: x[0][0])  # Sort by start_doc_id
+
+                # Unzip the sorted pairs
+                existing.boundaries, existing.chunks = zip(*pairs)
         else:
-            # Otherwise, create a new entry for the term
-            self._compressed_index[term] = compressed_postings
+            self._compressed_index[term] = chunked_postings
 
     def get_terms(self):
+        """Returns all terms in the index."""
         return self._compressed_index.keys()
 
     def get_uncompressed_postings(self, term: str) -> List[Posting]:
         """
-        Fetches the uncompressed postings for a given term as a list of Posting objects.
+        Gets all postings for a term (uncompressed).
+        Warning: This decompresses all chunks - use get_posting_list() for better performance.
 
-        Args:
-            term: The term for which the postings are being fetched.
-
-        Returns:
-            A list of Posting objects, or an empty list if the term is not found.
+        :param term: The term to fetch postings for
+        :return: List of Posting objects
         """
-        compressed_postings = self.get_compressed_postings(term)
-        if compressed_postings:
-            doc_ids, frequencies = CompressionTools.p_for_delta_decompress(compressed_postings)
-            # Convert doc_ids and frequencies to a list of Posting objects
-            list_postings = [Posting(doc_id=doc_id, payload=freq) for doc_id, freq in zip(doc_ids, frequencies)]
-            return list_postings
-        return []
+        chunked_postings = self._compressed_index.get(term)
+        if not chunked_postings:
+            return []
 
-    def compress_and_add_postings(self, term: str, doc_ids: List[int], frequencies: List[int]) -> None:
-        """
-        Compress and add postings for a term.
+        all_doc_ids = []
+        all_frequencies = []
 
-        Args:
-            term: The term for which the postings are being added.
-            doc_ids: A list of document IDs.
-            frequencies: A list of term frequencies corresponding to the doc IDs.
-        """
-        # Compress doc_ids and frequencies together
-        compressed_data = CompressionTools.p_for_delta_compress(doc_ids, frequencies)
-        self.add_compressed_postings(term, compressed_data)
+        for chunk in chunked_postings.chunks:
+            doc_ids, frequencies = CompressionTools.p_for_delta_decompress(chunk)
+            all_doc_ids.extend(doc_ids)
+            all_frequencies.extend(frequencies)
 
+        return [Posting(doc_id=doc_id, payload=freq)
+                for doc_id, freq in zip(all_doc_ids, all_frequencies)]
