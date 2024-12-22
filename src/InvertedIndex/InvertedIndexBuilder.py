@@ -41,6 +41,7 @@ class InvertedIndexBuilder:
         self.lexicon = lexicon
         self.document_table = document_table
         self.memory_tools = MemoryTrackingTools()
+        self.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
 
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
         """
@@ -123,7 +124,7 @@ class InvertedIndexBuilder:
     def _process_and_save_chunk(self, chunk: DataFrame, index_num: int) -> str:
         """Process a chunk and save its compressed index."""
         chunk_index = self.process_chunk(chunk)
-        index_path = f'Compressed_Index_{index_num}.vb'
+        index_path = self.resources_path + f"Compressed_Index_{index_num}.vb"
         chunk_index.write_index_compressed_to_file(index_path)
 
         del chunk_index
@@ -165,7 +166,8 @@ class InvertedIndexBuilder:
         print(f"Memory profiling results:")
         print(f"- Memory per document (with overhead): {memory_profile.memory_per_doc / 1024 / 1024:.2f} MB")
         print(f"- Recommended chunk size: {memory_profile.estimated_chunk_size} documents")
-
+        if memory_profile.estimated_chunk_size > 1500000:
+            print("Using default chunk size of 1.5 million documents")
         # Process the collection in chunks
         partial_indices_paths: List[str] = []
         chunk_start = 0
@@ -174,7 +176,7 @@ class InvertedIndexBuilder:
             # Adjust chunk size based on available memory
             current_available = self.memory_tools.get_available_memory()
             current_chunk_size = min(
-                memory_profile.estimated_chunk_size,
+                min(memory_profile.estimated_chunk_size, 1000000),
                 total_docs - chunk_start
             )
 
@@ -189,7 +191,7 @@ class InvertedIndexBuilder:
             )
 
             # Process and save the chunk
-            index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
+            index_path = self.resources_path + f"Compressed_Index_{len(partial_indices_paths) + 1}.vb"
             chunk_index = self.process_chunk(current_chunk)
             chunk_index.write_index_compressed_to_file(index_path)
             partial_indices_paths.append(index_path)
@@ -209,8 +211,8 @@ class InvertedIndexBuilder:
             partial_indices_paths = self.build_partial_indices(use_static_chunk_size, static_chunk_size)
 
             # Save auxiliary structures
-            self.lexicon.write_to_file("Lexicon")
-            self.document_table.write_to_file("DocumentTable")
+            self.lexicon.write_to_file(self.resources_path + "Lexicon")
+            self.document_table.write_to_file(self.resources_path + "DocumentTable")
 
             # Merge indices
             print("Merging indices...")
@@ -219,7 +221,7 @@ class InvertedIndexBuilder:
             )
 
             # Save final index and clean up
-            self.compressed_inverted_index.write_compressed_index_to_file("InvertedIndex")
+            self.compressed_inverted_index.write_compressed_index_to_file(self.resources_path + "InvertedIndex")
             self._delete_partial_indices(partial_indices_paths)
 
             print(f"Index built successfully with {len(self.compressed_inverted_index.get_terms())} unique terms.")
@@ -271,7 +273,7 @@ class InvertedIndexBuilder:
         # Iterate through chunks
         for chunk in self.collection_loader.process_chunks(static_chunk_size):
             # Process and save the chunk
-            index_path = f'Compressed_Index_{len(partial_indices_paths) + 1}.vb'
+            index_path = self.resources_path + f"Compressed_Index_{len(partial_indices_paths) + 1}.vb"
             chunk_index = self.process_chunk(chunk)
             chunk_index.write_index_compressed_to_file(index_path)
             partial_indices_paths.append(index_path)

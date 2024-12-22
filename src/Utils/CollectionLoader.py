@@ -9,7 +9,7 @@ import gzip
 
 class CollectionLoader:
     def __init__(self,
-                 file_path: str = 'C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\collection.tar.gz',
+                 file_path: str = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\collection.tar.gz",
                  chunk_size: int = 500000,
                  column_names: List[str] = None):
         if column_names is None:

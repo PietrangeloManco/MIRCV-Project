@@ -3,6 +3,7 @@ from collections import defaultdict
 
 from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from InvertedIndex.Posting import Posting
 from Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.Scoring import Scoring
@@ -14,91 +15,97 @@ class QueryProcessor:
                  lexicon: Lexicon,
                  document_table: DocumentTable,
                  inverted_index: CompressedInvertedIndex):
-        """
-        Initializes the QueryProcessor.
-        :param query_parser: An instance of the QueryParser class for parsing queries.
-        :param lexicon: An instance of the Lexicon class to retrieve term frequency and document frequency.
-        :param document_table: An instance of the DocumentTable class to retrieve document lengths.
-        :param inverted_index: An inverted index mapping terms to document IDs.
-        """
         self.query_parser = query_parser
         self.lexicon = lexicon
         self.document_table = document_table
         self.inverted_index = inverted_index
         self.scoring = Scoring(self.lexicon, self.document_table)
 
-    def process_query(self, query: str, query_type: str = "conjunctive", method: str = "tfidf", max_results: int = 10) -> Dict[int, float]:
-        """
-        Processes a query and returns the ranked documents.
-        :param query: The input query string.
-        :param query_type: The type of query: 'conjunctive' or 'disjunctive'.
-        :param method: The scoring method: 'tfidf' or 'bm25'.
-        :param max_results: The maximum number of relevant documents to return.
-        :return: A dictionary where keys are document IDs and values are their scores.
-        """
-        # Step 1: Parse the query into terms
+    def process_query(self, query: str, query_type: str = "conjunctive", method: str = "tfidf",
+                      max_results: int = 10) -> Dict[int, float]:
         query_terms = self.query_parser.parse(query)
         if not query_terms:
             return {}
 
-        # Step 2: Execute the query (conjunctive or disjunctive)
+        # Get postings lists for each term with their associated term
+        term_postings = self.get_term_postings(query_terms)
+
+        # Execute query based on type
         if query_type == "conjunctive":
-            postings = self.execute_conjunctive_query(query_terms)
+            matching_docs = self.execute_conjunctive_query(term_postings)
         elif query_type == "disjunctive":
-            postings = self.execute_disjunctive_query(query_terms)
+            matching_docs = self.execute_disjunctive_query(term_postings)
         else:
             raise ValueError("Invalid query type. Choose 'conjunctive' or 'disjunctive'.")
 
-        # Step 3: Rank the documents based on the chosen scoring method
-        ranked_documents = self.rank_documents(postings, query_terms, method)
+        # Rank documents based on the chosen scoring method
+        ranked_documents = self.rank_documents(matching_docs, method)
 
-        # Step 4: Limit the results to the top 'max_results' documents
-        return dict(list(ranked_documents.items())[:max_results+1])
+        # Return the top 'max_results' documents
+        return dict(list(ranked_documents.items())[:max_results])
 
-    def execute_conjunctive_query(self, terms: List[str]) -> List[int]:
-        """
-        Executes a conjunctive query (AND operation) to find documents containing all terms.
-        :param terms: The list of query terms.
-        :return: A list of document IDs that contain all query terms.
-        """
-        # Start with the postings list of the first term (extract doc_ids)
-        postings = {posting.doc_id for posting in self.inverted_index.get_uncompressed_postings(terms[0])}
+    def get_term_postings(self, terms: List[str]) -> Dict[str, List[Posting]]:
+        """Get postings for each term while maintaining term association."""
+        return {
+            term: list(self.inverted_index.get_uncompressed_postings(term))
+            for term in terms
+        }
 
-        # Intersect with the postings lists of the other terms
-        for term in terms[1:]:
-            postings &= {posting.doc_id for posting in self.inverted_index.get_uncompressed_postings(term)}
+    @staticmethod
+    def execute_conjunctive_query(term_postings: Dict[str, List[Posting]]) -> Dict[str, Dict[int, Posting]]:
+        """Execute conjunctive query returning matching documents with their postings per term."""
+        if not term_postings:
+            return {}
 
-        return list(postings)
+        # Get document IDs that appear in all posting lists
+        doc_sets = [
+            {posting.doc_id for posting in postings}
+            for postings in term_postings.values()
+        ]
+        matching_doc_ids = set.intersection(*doc_sets)
 
-    def execute_disjunctive_query(self, terms: List[str]) -> List[int]:
-        """
-        Executes a disjunctive query (OR operation) to find documents containing any of the terms.
-        :param terms: The list of query terms.
-        :return: A list of document IDs that contain at least one query term.
-        """
-        postings = set()
-        for term in terms:
-            postings |= {posting.doc_id for posting in self.inverted_index.get_uncompressed_postings(term)}
+        # Create a map of term -> {doc_id -> posting} for matching documents
+        return {
+            term: {
+                posting.doc_id: posting
+                for posting in postings
+                if posting.doc_id in matching_doc_ids
+            }
+            for term, postings in term_postings.items()
+        }
 
-        return list(postings)
+    @staticmethod
+    def execute_disjunctive_query(term_postings: Dict[str, List[Posting]]) -> Dict[str, Dict[int, Posting]]:
+        """Execute disjunctive query returning matching documents with their postings per term."""
+        # Create a map of term -> {doc_id -> posting} for all documents
+        return {
+            term: {posting.doc_id: posting for posting in postings}
+            for term, postings in term_postings.items()
+        }
 
-    def rank_documents(self, postings: List[int], query_terms: List[str], method: str) -> Dict[int, float]:
-        """
-        Ranks the documents based on the specified scoring method.
-        :param postings: The list of document IDs to rank.
-        :param query_terms: The query terms to compute the score for.
-        :param method: The scoring method to use ('tfidf' or 'bm25').
-        :return: A dictionary with document IDs as keys and their scores as values.
-        """
+    def rank_documents(self, term_postings: Dict[str, Dict[int, Posting]], method: str) -> Dict[int, float]:
+        """Rank documents using the correct posting for each term-document pair with query coverage boosting."""
         scores = defaultdict(float)
 
-        for doc_id in postings:
-            for term in query_terms:
-                # Compute the score for each term and document using the specified method
-                score = self.scoring.compute_score(term, doc_id, method)
-                scores[doc_id] += score
+        # Get all unique document IDs
+        all_doc_ids = {
+            doc_id
+            for postings_map in term_postings.values()
+            for doc_id in postings_map.keys()
+        }
 
-        # Sort documents by score in descending order
-        ranked_scores = {doc_id: score for doc_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)}
+        # For each document, compute its score
+        for doc_id in all_doc_ids:
+            doc_score = 0
+            matched_terms = 0
+            for term, postings_map in term_postings.items():
+                if doc_id in postings_map:
+                    # Only compute score if the term appears in the document
+                    posting = postings_map[doc_id]
+                    doc_score += self.scoring.compute_score(term, doc_id, posting.payload, method)
+                    matched_terms += 1
 
-        return ranked_scores
+            scores[doc_id] = doc_score
+
+        # Rank the documents by their score in descending order
+        return dict(sorted(scores.items(), key=lambda item: item[1], reverse=True))

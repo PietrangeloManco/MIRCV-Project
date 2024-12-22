@@ -6,6 +6,7 @@ from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.QueryProcessor import QueryProcessor
+from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
 
 class TestQueryProcessor(unittest.TestCase):
@@ -16,10 +17,11 @@ class TestQueryProcessor(unittest.TestCase):
         It's used to create common resources needed for the tests.
         """
         # Assuming instances are being created from files or mock data
+        cls.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
         cls.query_parser = QueryParser(Preprocessing())  # Replace with actual initialization
-        cls.lexicon = Lexicon.load_from_file("Lexicon")
-        cls.document_table = DocumentTable.load_from_file("DocumentTable")
-        cls.inverted_index = CompressedInvertedIndex.load_compressed_index_to_memory("InvertedIndex")
+        cls.lexicon = Lexicon.load_from_file(cls.resources_path + "Lexicon")
+        cls.document_table = DocumentTable.load_from_file(cls.resources_path + "DocumentTable")
+        cls.inverted_index = CompressedInvertedIndex.load_compressed_index_to_memory(cls.resources_path + "InvertedIndex")
         cls.query_processor = QueryProcessor(
             cls.query_parser, cls.lexicon, cls.document_table, cls.inverted_index
         )
@@ -49,9 +51,9 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_disjunctive_query_tfidf(self):
-        query = "data OR mining"
+        query = "who sings monk theme song"
         query_type = "disjunctive"
-        method = "tfidf"
+        method = "bm25"
 
         start_time = time.time()
         # Call the method with a sample query and check if it's processed correctly
@@ -59,11 +61,15 @@ class TestQueryProcessor(unittest.TestCase):
         end_time = time.time()
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
+        # Call the get_documents_by_ids method and print the documents
+        documents = CollectionLoader().get_documents_by_ids(doc_ids)
 
         print(f"Retrieved in {end_time - start_time}")
         # Print the documents along with their scores
-        for doc_id in zip(doc_ids):
+        for doc_id, document in zip(doc_ids, documents):
             print(f"Document ID: {doc_id}")
+            print(f"Document Text: {document}")
+            print("-" * 40)  # Separator for readability
 
         # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
@@ -97,7 +103,7 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_disjunctive_query_bm25(self):
-        query = "data OR mining"
+        query = "who sings monk theme song"
         query_type = "disjunctive"
         method = "bm25"
 

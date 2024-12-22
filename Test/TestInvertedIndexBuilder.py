@@ -122,14 +122,15 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             print(f"Total documents loaded: {total_docs}")
 
             print("Step 2: Loading lexicon and document table into memory...")
-            lexicon = Lexicon.load_from_file("Lexicon")
+            lexicon = Lexicon.load_from_file(self.index_builder.resources_path + "Lexicon")
             print("Lexicon loaded.")
 
-            document_table = DocumentTable.load_from_file("DocumentTable")
+            document_table = DocumentTable.load_from_file(self.index_builder.resources_path + "DocumentTable")
             print("Document table loaded.")
 
             # Initialize the inverted index without loading all data
-            index = CompressedInvertedIndex.load_compressed_index_to_memory("InvertedIndex")
+            index = CompressedInvertedIndex.load_compressed_index_to_memory(self.index_builder.resources_path + "InvertedIndex")
+            print("Inverted Index loaded.")
 
             print("Step 3: Getting terms from the lexicon...")
             terms = lexicon.get_all_terms()
