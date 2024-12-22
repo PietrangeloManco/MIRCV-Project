@@ -1,6 +1,5 @@
 import unittest
 import os
-from Lexicon.Lexicon import Lexicon
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 
 
@@ -103,25 +102,6 @@ class TestCompressedInvertedIndex(unittest.TestCase):
         terms = list(self.index.get_terms())
         self.assertIn("test", terms)
         self.assertIn("example", terms)
-
-    def test_get_postings_using_lexicon(self):
-        """Test fetching postings using the lexicon."""
-        lexicon = Lexicon()
-
-        lexicon.add_term(self.term, 0, sum(self.frequencies))
-
-        # Now, retrieve the postings using the lexicon
-        postings = self.index.get_postings_using_lexicon(self.term, lexicon)
-
-        # Assert that we have the correct number of postings and their expected values
-        self.assertEqual(len(postings), 3)  # We added 3 postings for this term
-        self.assertEqual(postings[0].doc_id, 1)
-        self.assertEqual(postings[0].payload, 5)
-        self.assertEqual(postings[1].doc_id, 2)
-        self.assertEqual(postings[1].payload, 10)
-        self.assertEqual(postings[2].doc_id, 3)
-        self.assertEqual(postings[2].payload, 15)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,16 +6,15 @@ class Lexicon:
     def __init__(self):
         self._lexicon = {}
 
-    def add_term(self, term: str, position: int, term_frequency: int) -> None:
+    def add_term(self, term: str, term_frequency: int) -> None:
         """
-        Adds a term to the lexicon with its position in the index file and the term frequency.
+        Adds a term to the lexicon with its term frequency.
 
         Args:
             term (str): The term to add.
-            position (int): The byte position in the index file where the term's postings start.
             term_frequency (int): The total number of occurrences of the term across all documents.
         """
-        self._lexicon[term] = {"position": position, "term_frequency": term_frequency}
+        self._lexicon[term] = {"term_frequency": term_frequency}
 
     def get_term_info(self, term: str) -> dict:
         """
@@ -25,7 +24,7 @@ class Lexicon:
             term (str): The term to look up.
 
         Returns:
-            dict: A dictionary with 'position' and 'term_frequency' or None if the term is not found.
+            dict: A dictionary with 'term_frequency' or None if the term is not found.
         """
         return self._lexicon.get(term)
 
@@ -47,9 +46,8 @@ class Lexicon:
         """
         with open(filename, "w") as f:
             for term, metadata in self._lexicon.items():
-                position = metadata["position"]
                 term_frequency = metadata["term_frequency"]
-                f.write(f"{term} {position} {term_frequency}\n")
+                f.write(f"{term} {term_frequency}\n")
 
     @staticmethod
     def load_from_file(filename: str) -> 'Lexicon':
@@ -65,8 +63,8 @@ class Lexicon:
         lexicon = Lexicon()
         with open(filename, "r") as f:
             for line in f:
-                term, position, term_frequency = line.strip().split()
-                lexicon.add_term(term, int(position), int(term_frequency))
+                term, term_frequency = line.strip().split()
+                lexicon.add_term(term, int(term_frequency))
         return lexicon
 
     # Function to build the lexicon from the inverted index
@@ -79,17 +77,12 @@ class Lexicon:
         Returns:
             dict: A dictionary representing the lexicon, mapping each term to its metadata.
         """
-        offset = 0  # This could be the byte offset if storing the index in a file
 
         for term in inverted_index.get_terms():
             postings = inverted_index.get_postings(term)
             # Assuming you want to store information like term frequency and postings offset
             term_frequency = len(postings)
             self._lexicon[term] = {
-                "offset": offset,
                 "term_frequency": term_frequency
             }
-            # Update the offset based on the number of postings (or the length of data if compressed)
-            offset += len(postings)  # Adjust this as needed for your storage format
-
         return self._lexicon

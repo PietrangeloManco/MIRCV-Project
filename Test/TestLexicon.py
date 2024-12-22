@@ -14,19 +14,18 @@ class TestLexicon(unittest.TestCase):
     def test_add_term_to_lexicon(self):
         """Test adding a term to the lexicon."""
         # Add a term to the lexicon with some metadata
-        self.lexicon.add_term("apple", position=100, term_frequency=5)
+        self.lexicon.add_term("apple", term_frequency=5)
 
         # Verify the term has been added
         term_info = self.lexicon.get_term_info("apple")
         self.assertIsNotNone(term_info)
-        self.assertEqual(term_info["position"], 100)
         self.assertEqual(term_info["term_frequency"], 5)
 
     def test_get_all_terms_from_lexicon(self):
         """Test retrieving all terms from the lexicon."""
         # Add some terms to the lexicon
-        self.lexicon.add_term("apple", position=100, term_frequency=5)
-        self.lexicon.add_term("banana", position=150, term_frequency=3)
+        self.lexicon.add_term("apple", term_frequency=5)
+        self.lexicon.add_term("banana", term_frequency=3)
 
         # Get all terms and verify
         terms = self.lexicon.get_all_terms()
@@ -36,8 +35,8 @@ class TestLexicon(unittest.TestCase):
     def test_write_and_load_from_file(self):
         """Test writing and loading the lexicon to and from a file."""
         # Add some terms to the lexicon
-        self.lexicon.add_term("apple", position=100, term_frequency=5)
-        self.lexicon.add_term("banana", position=150, term_frequency=3)
+        self.lexicon.add_term("apple", term_frequency=5)
+        self.lexicon.add_term("banana", term_frequency=3)
 
         # Write the lexicon to a file
         lexicon_file = "test_lexicon.txt"
@@ -50,10 +49,8 @@ class TestLexicon(unittest.TestCase):
         apple_info = loaded_lexicon.get_term_info("apple")
         banana_info = loaded_lexicon.get_term_info("banana")
 
-        self.assertEqual(apple_info["position"], 100)
         self.assertEqual(apple_info["term_frequency"], 5)
 
-        self.assertEqual(banana_info["position"], 150)
         self.assertEqual(banana_info["term_frequency"], 3)
 
         # Clean up

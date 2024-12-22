@@ -1,3 +1,4 @@
+import os
 import unittest
 import time
 
@@ -18,6 +19,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         cls.merger = Merger()
         cls.document_table = DocumentTable()
         cls.lexicon = Lexicon()
+        cls.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
 
     def setUp(self):
         """Create a fresh InvertedIndexBuilder instance for each test."""
@@ -28,6 +30,16 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             document_table=self.document_table,
             lexicon=self.lexicon
         )
+
+    def tearDown(self):
+        """Clean up any leftover files from the tests, specifically partial indices."""
+        # Path to the partial index file that needs to be removed after the test
+        partial_index_path = self.resources_path + "Compressed_Index_1.vb"
+
+        # Check if the file exists and delete it
+        if os.path.exists(partial_index_path):
+            os.remove(partial_index_path)
+            print(f"Deleted partial index file: {partial_index_path}")
 
     def test_build_full_index(self):
         """Test the complete index building and merging process with PForDelta compression, optimized using term positions."""
@@ -144,7 +156,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             all_doc_ids = set()
 
             # Validate sample terms using lexicon and document table for efficient access
-            print("Step 4: Validating sample terms using term positions...")
+            print("Step 4: Validating sample terms...")
             for i, term in enumerate(sample_terms):
                 if i % 10 == 0:
                     print(f"Validating term {i + 1}/{len(sample_terms)}: '{term}'")
@@ -154,11 +166,9 @@ class TestInvertedIndexBuilder(unittest.TestCase):
                 if not term_info:
                     self.fail(f"Term '{term}' not found in the lexicon.")
 
-                position = term_info['position']
-
                 # Use the position to fetch postings from the inverted index
                 postings = index.get_uncompressed_postings(term)
-                self.assertIsNotNone(postings, f"Postings should exist for term '{term}' at position {position}")
+                self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
 
                 # Validate postings

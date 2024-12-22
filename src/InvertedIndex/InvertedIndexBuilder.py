@@ -62,11 +62,11 @@ class InvertedIndexBuilder:
         doc_lengths = chunk['text'].str.split().str.len()
 
         # Update document table in bulk
-        for idx, (doc_id, length) in enumerate(zip(chunk['index'], doc_lengths)):
-            self.document_table.add_document(doc_id, length, idx)
+        for doc_id, length in zip(chunk['index'], doc_lengths):
+            self.document_table.add_document(doc_id, length)
 
         # Process tokens and update lexicon
-        for idx, (doc_id, tokens) in enumerate(zip(chunk['index'], tokens_list)):
+        for doc_id, tokens in zip(chunk['index'], tokens_list):
             if not tokens:  # Skip empty documents
                 continue
 
@@ -79,7 +79,7 @@ class InvertedIndexBuilder:
             # Update lexicon and index in single pass
             for token, freq in token_freq_map.items():
                 chunk_index.add_posting(token, doc_id, freq)
-                self.lexicon.add_term(token, position=idx, term_frequency=freq)
+                self.lexicon.add_term(token, term_frequency=freq)
 
         return chunk_index
 
