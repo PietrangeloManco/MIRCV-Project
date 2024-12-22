@@ -25,7 +25,7 @@ class Scoring:
         tf = 1 + math.log(term_frequency)
 
         # Compute inverse document frequency (IDF)
-        idf = math.log(self.total_documents / (self.lexicon.get_term_info(term)['term_frequency']))
+        idf = math.log(self.total_documents / (self.lexicon.get_term_info(term)))
 
         # TFIDF score is TF * IDF
         return tf * idf
@@ -43,7 +43,7 @@ class Scoring:
 
         # BM25-specific IDF
         idf = math.log(
-            self.total_documents / (self.lexicon.get_term_info(term)['term_frequency']))
+            self.total_documents / (self.lexicon.get_term_info(term)))
 
         # BM25 formula: idf * (numerator / denominator)
         numerator = tf

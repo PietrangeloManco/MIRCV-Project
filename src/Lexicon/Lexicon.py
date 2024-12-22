@@ -6,17 +6,18 @@ class Lexicon:
     def __init__(self):
         self._lexicon = {}
 
-    def add_term(self, term: str, term_frequency: int) -> None:
+    def add_term(self, term: str, document_frequency: int) -> None:
         """
-        Adds a term to the lexicon with its term frequency.
+        Adds or updates a term in the lexicon with its document frequency.
+        If the term exists, adds to its current document frequency.
 
         Args:
             term (str): The term to add.
-            term_frequency (int): The total number of occurrences of the term across all documents.
+            document_frequency (int): The number of documents the term appears in.
         """
-        self._lexicon[term] = {"term_frequency": term_frequency}
+        self._lexicon[term] = self._lexicon.get(term, 0) + document_frequency
 
-    def get_term_info(self, term: str) -> dict:
+    def get_term_info(self, term: str) -> int:
         """
         Retrieves metadata for a given term.
 
@@ -45,9 +46,8 @@ class Lexicon:
             filename (str): The path of the file to write the lexicon to.
         """
         with open(filename, "w") as f:
-            for term, metadata in self._lexicon.items():
-                term_frequency = metadata["term_frequency"]
-                f.write(f"{term} {term_frequency}\n")
+            for term, document_frequency in self._lexicon.items():
+                f.write(f"{term} {document_frequency}\n")
 
     @staticmethod
     def load_from_file(filename: str) -> 'Lexicon':
@@ -63,8 +63,8 @@ class Lexicon:
         lexicon = Lexicon()
         with open(filename, "r") as f:
             for line in f:
-                term, term_frequency = line.strip().split()
-                lexicon.add_term(term, int(term_frequency))
+                term, document_frequency = line.strip().split()
+                lexicon.add_term(term, int(document_frequency))
         return lexicon
 
     # Function to build the lexicon from the inverted index
@@ -81,8 +81,8 @@ class Lexicon:
         for term in inverted_index.get_terms():
             postings = inverted_index.get_postings(term)
             # Assuming you want to store information like term frequency and postings offset
-            term_frequency = len(postings)
+            document_frequency = len(postings)
             self._lexicon[term] = {
-                "term_frequency": term_frequency
+                "term_frequency": document_frequency
             }
         return self._lexicon

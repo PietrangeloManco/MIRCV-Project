@@ -1,86 +1,85 @@
 import unittest
 import os
-
-from InvertedIndex.InvertedIndex import InvertedIndex
-from Lexicon.Lexicon import Lexicon
+from Lexicon import Lexicon
 
 
 class TestLexicon(unittest.TestCase):
-
     def setUp(self):
-        """Setup for the tests."""
-        self.lexicon = Lexicon()
+        """Set up a fresh instance of Lexicon before each test."""
+        self.lexicon = Lexicon.Lexicon()
 
-    def test_add_term_to_lexicon(self):
-        """Test adding a term to the lexicon."""
-        # Add a term to the lexicon with some metadata
-        self.lexicon.add_term("apple", term_frequency=5)
+    def test_add_and_get_term(self):
+        """Test adding terms and retrieving their document frequency."""
+        self.lexicon.add_term("apple", 5)
+        self.lexicon.add_term("banana", 3)
 
-        # Verify the term has been added
-        term_info = self.lexicon.get_term_info("apple")
-        self.assertIsNotNone(term_info)
-        self.assertEqual(term_info["term_frequency"], 5)
+        # Verify the document frequencies
+        self.assertEqual(self.lexicon.get_term_info("apple"), 5)
+        self.assertEqual(self.lexicon.get_term_info("banana"), 3)
+        self.assertIsNone(self.lexicon.get_term_info("cherry"))  # Non-existent term
 
-    def test_get_all_terms_from_lexicon(self):
-        """Test retrieving all terms from the lexicon."""
-        # Add some terms to the lexicon
-        self.lexicon.add_term("apple", term_frequency=5)
-        self.lexicon.add_term("banana", term_frequency=3)
+    def test_get_all_terms(self):
+        """Test retrieving all terms in the lexicon."""
+        self.lexicon.add_term("apple", 5)
+        self.lexicon.add_term("banana", 3)
 
-        # Get all terms and verify
         terms = self.lexicon.get_all_terms()
         self.assertIn("apple", terms)
         self.assertIn("banana", terms)
+        self.assertEqual(len(terms), 2)
 
     def test_write_and_load_from_file(self):
-        """Test writing and loading the lexicon to and from a file."""
-        # Add some terms to the lexicon
-        self.lexicon.add_term("apple", term_frequency=5)
-        self.lexicon.add_term("banana", term_frequency=3)
+        """Test saving the lexicon to a file and loading it back."""
+        self.lexicon.add_term("apple", 5)
+        self.lexicon.add_term("banana", 3)
 
-        # Write the lexicon to a file
-        lexicon_file = "test_lexicon.txt"
-        self.lexicon.write_to_file(lexicon_file)
+        # Write to a temporary file
+        temp_file = "test_lexicon.txt"
+        self.lexicon.write_to_file(temp_file)
 
         # Load the lexicon from the file
-        loaded_lexicon = Lexicon.load_from_file(lexicon_file)
+        loaded_lexicon = Lexicon.Lexicon.load_from_file(temp_file)
 
-        # Verify that the loaded lexicon contains the correct data
-        apple_info = loaded_lexicon.get_term_info("apple")
-        banana_info = loaded_lexicon.get_term_info("banana")
+        # Verify the terms and frequencies
+        self.assertEqual(loaded_lexicon.get_term_info("apple"), 5)
+        self.assertEqual(loaded_lexicon.get_term_info("banana"), 3)
+        self.assertIsNone(loaded_lexicon.get_term_info("cherry"))
 
-        self.assertEqual(apple_info["term_frequency"], 5)
+        # Clean up temporary file
+        os.remove(temp_file)
 
-        self.assertEqual(banana_info["term_frequency"], 3)
-
-        # Clean up
-        os.remove(lexicon_file)
-
-    def test_build_lexicon_from_inverted_index(self):
+    def test_build_lexicon(self):
         """Test building the lexicon from an inverted index."""
-        # Simulate an inverted index with postings
-        inverted_index = InvertedIndex()
-        inverted_index.add_posting("apple", 1, 5)
-        inverted_index.add_posting("apple", 2, 3)
-        inverted_index.add_posting("banana", 3, 2)
+        class DummyInvertedIndex:
+            def __init__(self):
+                self.index = {
+                    "apple": [(1, 2), (2, 3)],
+                    "banana": [(1, 1)],
+                    "cherry": [(2, 1), (3, 2), (4, 1)]
+                }
 
-        # Build the lexicon from the inverted index
+            def get_terms(self):
+                return self.index.keys()
+
+            def get_postings(self, term):
+                return self.index[term]
+
+        inverted_index = DummyInvertedIndex()
         self.lexicon.build_lexicon(inverted_index)
 
-        # Check the lexicon for correct term frequencies
-        apple_info = self.lexicon.get_term_info("apple")
-        banana_info = self.lexicon.get_term_info("banana")
-
-        self.assertEqual(apple_info["term_frequency"], 2)  # 2 postings for "apple"
-        self.assertEqual(banana_info["term_frequency"], 1)  # 1 posting for "banana"
+        # Verify the built lexicon
+        self.assertEqual(self.lexicon.get_term_info("apple"), {"term_frequency": 2})
+        self.assertEqual(self.lexicon.get_term_info("banana"), {"term_frequency": 1})
+        self.assertEqual(self.lexicon.get_term_info("cherry"), {"term_frequency": 3})
 
     def test_empty_lexicon(self):
-        """Test the lexicon when it's empty."""
-        terms = self.lexicon.get_all_terms()
-        self.assertEqual(terms, [])
-        term_info = self.lexicon.get_term_info("apple")
-        self.assertIsNone(term_info)
+        """Test behavior with an empty lexicon."""
+        self.assertEqual(self.lexicon.get_all_terms(), [])
+        self.assertIsNone(self.lexicon.get_term_info("nonexistent"))
 
+    def tearDown(self):
+        """Clean up after each test if necessary."""
+        pass
 
 if __name__ == "__main__":
     unittest.main()

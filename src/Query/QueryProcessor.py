@@ -53,18 +53,24 @@ class QueryProcessor:
 
     @staticmethod
     def execute_conjunctive_query(term_postings: Dict[str, List[Posting]]) -> Dict[str, Dict[int, Posting]]:
-        """Execute conjunctive query returning matching documents with their postings per term."""
         if not term_postings:
             return {}
 
-        # Get document IDs that appear in all posting lists
-        doc_sets = [
-            {posting.doc_id for posting in postings}
-            for postings in term_postings.values()
-        ]
-        matching_doc_ids = set.intersection(*doc_sets)
+        # Get the shortest posting list first to minimize intersection operations
+        sorted_terms = sorted(term_postings.items(), key=lambda x: len(x[1]))
+        first_term, first_postings = sorted_terms[0]
 
-        # Create a map of term -> {doc_id -> posting} for matching documents
+        # Initialize with the shortest posting list
+        matching_doc_ids = {posting.doc_id for posting in first_postings}
+
+        # Intersect with remaining posting lists
+        for term, postings in sorted_terms[1:]:
+            posting_doc_ids = {posting.doc_id for posting in postings}
+            matching_doc_ids &= posting_doc_ids
+            if not matching_doc_ids:  # Early termination if no matches
+                return {}
+
+        # Create result dictionary only for matching documents
         return {
             term: {
                 posting.doc_id: posting

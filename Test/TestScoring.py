@@ -32,7 +32,7 @@ class TestScoring(unittest.TestCase):
         term = "term1"
         payload = 2  # Example term frequency
         # Expected IDF calculation (using provided formula)
-        idf = math.log(self.scoring.total_documents / self.lexicon.get_term_info(term)['term_frequency'])
+        idf = math.log(self.scoring.total_documents / self.lexicon.get_term_info(term))
         expected_tfidf = (1 + math.log(payload)) * idf
         tfidf_score = self.scoring.compute_tfidf(term, payload)
         self.assertAlmostEqual(tfidf_score, expected_tfidf)
@@ -46,7 +46,7 @@ class TestScoring(unittest.TestCase):
         b = 0.75
 
         doc_length = self.document_table.get_document_length(doc_id)
-        idf = math.log(self.scoring.total_documents / self.lexicon.get_term_info(term)['term_frequency'])
+        idf = math.log(self.scoring.total_documents / self.lexicon.get_term_info(term))
         numerator = payload
         denominator = payload + k1 * (1 - b + b * (doc_length / self.scoring.avg_doc_length))
         expected_bm25 = idf * (numerator / denominator)

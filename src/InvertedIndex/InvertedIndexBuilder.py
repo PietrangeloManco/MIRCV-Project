@@ -65,7 +65,10 @@ class InvertedIndexBuilder:
         for doc_id, length in zip(chunk['index'], doc_lengths):
             self.document_table.add_document(doc_id, length)
 
-        # Process tokens and update lexicon
+        # Track document frequency for tokens
+        doc_frequency_map = {}
+
+        # Process tokens and update the index
         for doc_id, tokens in zip(chunk['index'], tokens_list):
             if not tokens:  # Skip empty documents
                 continue
@@ -76,10 +79,18 @@ class InvertedIndexBuilder:
                 if token:  # Skip empty tokens
                     token_freq_map[token] = token_freq_map.get(token, 0) + 1
 
-            # Update lexicon and index in single pass
+                    # Track unique document IDs for each token
+                    if token not in doc_frequency_map:
+                        doc_frequency_map[token] = set()
+                    doc_frequency_map[token].add(doc_id)
+
+            # Update the inverted index
             for token, freq in token_freq_map.items():
                 chunk_index.add_posting(token, doc_id, freq)
-                self.lexicon.add_term(token, term_frequency=freq)
+
+        # Update the lexicon with document frequency
+        for token, doc_ids in doc_frequency_map.items():
+            self.lexicon.add_term(token, document_frequency=len(doc_ids))
 
         return chunk_index
 
@@ -166,8 +177,8 @@ class InvertedIndexBuilder:
         print(f"Memory profiling results:")
         print(f"- Memory per document (with overhead): {memory_profile.memory_per_doc / 1024 / 1024:.2f} MB")
         print(f"- Recommended chunk size: {memory_profile.estimated_chunk_size} documents")
-        if memory_profile.estimated_chunk_size > 1500000:
-            print("Using default chunk size of 1.5 million documents")
+        if memory_profile.estimated_chunk_size > 1000000:
+            print("Using default chunk size of 1.0 million documents")
         # Process the collection in chunks
         partial_indices_paths: List[str] = []
         chunk_start = 0

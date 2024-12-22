@@ -81,11 +81,9 @@ class TestInvertedIndexBuilder(unittest.TestCase):
                 if not term_info:
                     self.fail(f"Term '{term}' not found in the lexicon.")
 
-                position = term_info['position']
-
                 # Use the position to fetch postings from the inverted index
                 postings = index.get_uncompressed_postings(term)
-                self.assertIsNotNone(postings, f"Postings should exist for term '{term}' at position {position}")
+                self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
 
                 # Validate postings
