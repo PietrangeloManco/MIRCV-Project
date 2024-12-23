@@ -1,7 +1,9 @@
 import concurrent.futures
+from collections import defaultdict
+
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from Utils.CompressionTools import CompressionTools
-from collections import defaultdict
+
 
 class Merger:
     def __init__(self):
@@ -38,7 +40,8 @@ class Merger:
         # Compress the merged lists and return the result
         return CompressionTools.p_for_delta_compress(merged_doc_ids, merged_frequencies_list)
 
-    def _merge_two_indices(self, index1: CompressedInvertedIndex, index2: CompressedInvertedIndex) -> CompressedInvertedIndex:
+    def _merge_two_indices(self, index1: CompressedInvertedIndex,
+                           index2: CompressedInvertedIndex) -> CompressedInvertedIndex:
         """Helper function to merge two compressed indices, summing frequencies during merge."""
         merged_index = CompressedInvertedIndex()
         all_terms = set(index1.get_terms()).union(index2.get_terms())
@@ -84,4 +87,3 @@ class Merger:
 
         # Return the final merged index
         return indices[0]
-

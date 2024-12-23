@@ -1,17 +1,20 @@
 import time
-from Query.QueryProcessor import QueryProcessor
+
 from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
+from Query.QueryProcessor import QueryProcessor
 from Utils.Preprocessing import Preprocessing
+from Utils.config import RESOURCES_PATH
+
 
 class SearchCLI:
     def __init__(self):
         """
         Initializes the CLI by loading the required structures into memory.
         """
-        resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
+        resources_path = RESOURCES_PATH
         print("Loading resources...")
         self.query_parser = QueryParser(Preprocessing())  # Using the Preprocessing class here
         self.lexicon = Lexicon.load_from_file(resources_path + "Lexicon")
@@ -84,6 +87,7 @@ class SearchCLI:
 
             except ValueError:
                 print("Invalid input. Please enter 1 for TF-IDF or 2 for BM25.")
+
 
 if __name__ == "__main__":
     cli = SearchCLI()

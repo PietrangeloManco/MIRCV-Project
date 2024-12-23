@@ -1,7 +1,8 @@
+import gc
 import os
 from typing import List, Optional
+
 import pandas as pd
-import gc
 from pandas import DataFrame
 
 from DocumentTable.DocumentTable import DocumentTable
@@ -13,6 +14,7 @@ from Utils.CollectionLoader import CollectionLoader
 from Utils.MemoryProfile import MemoryProfile
 from Utils.MemoryTrackingTools import MemoryTrackingTools
 from Utils.Preprocessing import Preprocessing
+from Utils.config import RESOURCES_PATH
 
 
 class InvertedIndexBuilder:
@@ -41,7 +43,7 @@ class InvertedIndexBuilder:
         self.lexicon = lexicon
         self.document_table = document_table
         self.memory_tools = MemoryTrackingTools()
-        self.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
+        self.resources_path = RESOURCES_PATH
 
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
         """
@@ -144,7 +146,7 @@ class InvertedIndexBuilder:
         return index_path
 
     def build_partial_indices(self, use_static_chunk_size: bool = False, static_chunk_size: Optional[int] = None) -> \
-    List[str]:
+            List[str]:
         """
         Build partial compressed indices with dynamic or static chunk sizing based on memory profiling or fixed chunk size.
 
@@ -257,8 +259,8 @@ class InvertedIndexBuilder:
             )
 
             # Save auxiliary structures
-            self.lexicon.write_to_file("partial_lexicon.txt")
-            self.document_table.write_to_file("partial_document_table.txt")
+            self.lexicon.write_to_file(self.resources_path + "partial_lexicon.txt")
+            self.document_table.write_to_file(self.resources_path + "partial_document_table.txt")
 
             print(f"Partial index built with {len(self.compressed_inverted_index.get_terms())} unique terms.")
 

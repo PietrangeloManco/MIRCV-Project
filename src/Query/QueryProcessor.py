@@ -1,5 +1,5 @@
-from typing import List, Dict
 from collections import defaultdict
+from typing import List, Dict
 
 from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex

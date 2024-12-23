@@ -1,8 +1,10 @@
 import struct
 from collections import defaultdict
 from typing import Any, List, Iterator
+
 from Utils.CompressionTools import CompressionTools
 from src.InvertedIndex.Posting import Posting
+
 
 # Inverted Index structure class
 class InvertedIndex:

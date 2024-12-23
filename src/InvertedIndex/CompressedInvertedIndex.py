@@ -1,7 +1,9 @@
 import struct
 from typing import List
+
 from InvertedIndex.Posting import Posting
 from Utils.CompressionTools import CompressionTools
+
 
 class CompressedInvertedIndex:
     def __init__(self):

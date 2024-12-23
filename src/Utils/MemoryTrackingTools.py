@@ -2,7 +2,6 @@ import psutil
 from pandas import DataFrame
 
 
-
 class MemoryTrackingTools:
     def __init__(self):
         pass
@@ -30,4 +29,3 @@ class MemoryTrackingTools:
         Get the total system memory in bytes.
         """
         return psutil.virtual_memory().total
-

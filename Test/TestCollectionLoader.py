@@ -1,13 +1,16 @@
 import unittest
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
+from Utils.config import RESOURCES_PATH
 from src.Utils.CollectionLoader import CollectionLoader
 
 
 class TestCollectionLoader(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.collection_path = 'C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\collection.tar.gz'
+        cls.collection_path = RESOURCES_PATH + "collection.tar.gz"
         cls.chunk_size = 1000  # Smaller chunk size for testing
         cls.loader = CollectionLoader(
             file_path=cls.collection_path,

@@ -1,7 +1,8 @@
 import os
 import unittest
+
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from InvertedIndex.Merger import Merger # Assuming the Merger class is in Merger.py
+from InvertedIndex.Merger import Merger  # Assuming the Merger class is in Merger.py
 from Utils.CompressionTools import CompressionTools
 
 
@@ -93,9 +94,8 @@ class TestMerger(unittest.TestCase):
         self.assertTrue(self.term2 in final_index.get_terms())
         self.assertTrue(term3 in final_index.get_terms())
 
-        for i in range (1, 4):
+        for i in range(1, 4):
             os.remove(f"index{i}")
-
 
     def test_merge_empty_indices(self):
         """Test the case when no indices are provided."""
@@ -119,6 +119,7 @@ class TestMerger(unittest.TestCase):
             # Assert that the postings are equal for the term
             self.assertEqual(final_postings, original_postings, f"Postings for term '{term}' do not match.")
         os.remove("index1")
+
 
 if __name__ == "__main__":
     unittest.main()

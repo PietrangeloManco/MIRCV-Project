@@ -1,6 +1,6 @@
+import numpy as np
 from sklearn.metrics import ndcg_score
 from tqdm import tqdm
-import numpy as np
 
 from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
@@ -8,6 +8,7 @@ from Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.QueryProcessor import QueryProcessor
 from Utils.Preprocessing import Preprocessing
+from Utils.config import RESOURCES_PATH
 
 
 class EvaluationCLI:
@@ -15,7 +16,7 @@ class EvaluationCLI:
         """
         Initializes the CLI by loading the required structures into memory.
         """
-        self.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
+        self.resources_path = RESOURCES_PATH
         print("Loading resources...")
         self.query_parser = QueryParser(Preprocessing())
         self.lexicon = Lexicon.load_from_file(self.resources_path + "Lexicon")

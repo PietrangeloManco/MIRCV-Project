@@ -1,6 +1,7 @@
 import struct
 from typing import List, Tuple
 
+
 class CompressionTools:
 
     @staticmethod

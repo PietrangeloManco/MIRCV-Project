@@ -9,7 +9,6 @@ from Utils.Preprocessing import Preprocessing
 
 
 def main():
-
     # Initialize components
     collection_loader = CollectionLoader()
     preprocessing = Preprocessing()

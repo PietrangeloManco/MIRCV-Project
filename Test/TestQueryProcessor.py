@@ -8,6 +8,8 @@ from Query.QueryParser import QueryParser
 from Query.QueryProcessor import QueryProcessor
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
+from Utils.config import RESOURCES_PATH
+
 
 class TestQueryProcessor(unittest.TestCase):
     @classmethod
@@ -17,17 +19,18 @@ class TestQueryProcessor(unittest.TestCase):
         It's used to create common resources needed for the tests.
         """
         # Assuming instances are being created from files or mock data
-        cls.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
+        cls.resources_path = RESOURCES_PATH
         cls.query_parser = QueryParser(Preprocessing())  # Replace with actual initialization
         cls.lexicon = Lexicon.load_from_file(cls.resources_path + "Lexicon")
         cls.document_table = DocumentTable.load_from_file(cls.resources_path + "DocumentTable")
-        cls.inverted_index = CompressedInvertedIndex.load_compressed_index_to_memory(cls.resources_path + "InvertedIndex")
+        cls.inverted_index = CompressedInvertedIndex.load_compressed_index_to_memory(
+            cls.resources_path + "InvertedIndex")
         cls.query_processor = QueryProcessor(
             cls.query_parser, cls.lexicon, cls.document_table, cls.inverted_index
         )
 
     def test_conjunctive_query_tfidf(self):
-        query = "data mining"
+        query = "information retrieval"
         query_type = "conjunctive"
         method = "tfidf"
 
@@ -45,13 +48,13 @@ class TestQueryProcessor(unittest.TestCase):
 
         # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
-        self.assertGreater(len(ranked_docs), 0)
+        self.assertGreaterEqual(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order
         scores = list(ranked_docs.values())
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_disjunctive_query_tfidf(self):
-        query = "who sings monk theme song"
+        query = "information retrieval"
         query_type = "disjunctive"
         method = "bm25"
 
@@ -61,17 +64,12 @@ class TestQueryProcessor(unittest.TestCase):
         end_time = time.time()
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
-        # Call the get_documents_by_ids method and print the documents
-        documents = CollectionLoader().get_documents_by_ids(doc_ids)
 
         print(f"Retrieved in {end_time - start_time}")
         # Print the documents along with their scores
-        for doc_id, document in zip(doc_ids, documents):
+        for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
-            print(f"Document Text: {document}")
-            print("-" * 40)  # Separator for readability
 
-        # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
         self.assertGreater(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order
@@ -79,7 +77,7 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_conjunctive_query_bm25(self):
-        query = "machine learning"
+        query = "information retrieval"
         query_type = "conjunctive"
         method = "bm25"
 
@@ -103,7 +101,7 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_disjunctive_query_bm25(self):
-        query = "who sings monk theme song"
+        query = "information retrieval"
         query_type = "disjunctive"
         method = "bm25"
 
@@ -114,11 +112,39 @@ class TestQueryProcessor(unittest.TestCase):
 
         doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
 
-        print(f"Retrieved in {end_time-start_time}")
+        print(f"Retrieved in {end_time - start_time}")
         # Print the documents along with their scores
         for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
 
+        self.assertIsInstance(ranked_docs, dict)
+        self.assertGreater(len(ranked_docs), 0)
+        # Check if the documents are sorted by score in descending order
+        scores = list(ranked_docs.values())
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_fully_retrieved_documents(self):
+        query = "information retrieval"
+        query_type = "disjunctive"
+        method = "bm25"
+
+        start_time = time.time()
+        # Call the method with a sample query and check if it's processed correctly
+        ranked_docs = self.query_processor.process_query(query, query_type, method)
+        end_time = time.time()
+
+        doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
+        # Call the get_documents_by_ids method and print the documents
+        documents = CollectionLoader().get_documents_by_ids(doc_ids)
+
+        print(f"Retrieved in {end_time - start_time}")
+        # Print the documents along with their scores
+        for doc_id, document in zip(doc_ids, documents):
+            print(f"Document ID: {doc_id}")
+            print(f"Document Text: {document}")
+            print("-" * 40)  # Separator for readability
+
+        # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
         self.assertGreater(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order

@@ -1,5 +1,6 @@
-import unittest
 import os
+import unittest
+
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 
 
@@ -103,6 +104,6 @@ class TestCompressedInvertedIndex(unittest.TestCase):
         self.assertIn("test", terms)
         self.assertIn("example", terms)
 
+
 if __name__ == "__main__":
     unittest.main()
-

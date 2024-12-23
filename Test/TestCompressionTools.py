@@ -1,5 +1,7 @@
 import unittest
+
 from src.Utils.CompressionTools import CompressionTools
+
 
 class TestCompressionTools(unittest.TestCase):
 
@@ -18,7 +20,8 @@ class TestCompressionTools(unittest.TestCase):
                 compressed_data = CompressionTools.p_for_delta_compress(doc_ids, frequencies)
 
                 # Decompress and check if we get the original data back
-                decompressed_doc_ids, decompressed_frequencies = CompressionTools.p_for_delta_decompress(compressed_data)
+                decompressed_doc_ids, decompressed_frequencies = CompressionTools.p_for_delta_decompress(
+                    compressed_data)
 
                 # Assert the decompressed values match the original input
                 self.assertEqual(doc_ids, decompressed_doc_ids)
@@ -75,6 +78,7 @@ class TestCompressionTools(unittest.TestCase):
 
         self.assertEqual(doc_ids, decompressed_doc_ids)
         self.assertEqual(frequencies, decompressed_frequencies)
+
 
 if __name__ == "__main__":
     unittest.main()

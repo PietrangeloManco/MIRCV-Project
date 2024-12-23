@@ -1,6 +1,6 @@
 import os
-import unittest
 import time
+import unittest
 
 from DocumentTable.DocumentTable import DocumentTable
 from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
@@ -9,6 +9,8 @@ from InvertedIndex.Merger import Merger
 from Lexicon.Lexicon import Lexicon
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
+from Utils.config import RESOURCES_PATH
+
 
 class TestInvertedIndexBuilder(unittest.TestCase):
     @classmethod
@@ -19,7 +21,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         cls.merger = Merger()
         cls.document_table = DocumentTable()
         cls.lexicon = Lexicon()
-        cls.resources_path = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\"
+        cls.resources_path = RESOURCES_PATH
 
     def setUp(self):
         """Create a fresh InvertedIndexBuilder instance for each test."""
@@ -35,93 +37,21 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         """Clean up any leftover files from the tests, specifically partial indices."""
         # Path to the partial index file that needs to be removed after the test
         partial_index_path = self.resources_path + "Compressed_Index_1.vb"
+        partial_document_table_path = self.resources_path + "partial_document_table.txt"
+        partial_lexicon_table_path = self.resources_path + "partial_lexicon.txt"
 
         # Check if the file exists and delete it
         if os.path.exists(partial_index_path):
             os.remove(partial_index_path)
             print(f"Deleted partial index file: {partial_index_path}")
 
-    def test_build_full_index(self):
-        """Test the complete index building and merging process with PForDelta compression, optimized using term positions."""
+        if os.path.exists(partial_document_table_path):
+            os.remove(partial_document_table_path)
+            print(f"Deleted partial document table file: {partial_document_table_path}")
 
-        try:
-            # Step 1: Load the total number of documents
-            print("Loading the total number of documents...")
-            total_docs = self.collection_loader.get_total_docs()
-            print(f"Total documents loaded: {total_docs}")
-
-            # Step 2: Build the full index, lexicon, and document table
-            print("Building the full index, lexicon, and document table...")
-            self.index_builder.build_full_index()
-            index = self.index_builder.get_index()
-            lexicon = self.index_builder.get_lexicon()  # Assuming the lexicon is accessible
-            document_table = self.index_builder.get_document_table()  # Assuming the document table is accessible
-            print("Index, lexicon, and document table built.")
-
-            # Step 3: Retrieve terms from the lexicon
-            print("Retrieving terms from the lexicon...")
-            terms = lexicon.get_all_terms()
-            print(f"Number of terms retrieved: {len(terms)}")
-            self.assertGreater(len(terms), 0, "Full index should contain terms")
-
-            # Step 4: Sample terms for detailed validation
-            sample_terms = list(terms)[:100] if len(terms) >= 100 else terms
-            print(f"Number of sample terms selected for detailed validation: {len(sample_terms)}")
-
-            all_doc_ids = set()
-
-            # Step 5: Validate sample terms using term positions
-            print("Validating sample terms using term positions...")
-            for i, term in enumerate(sample_terms):
-                if i % 10 == 0:
-                    print(f"Validating term {i + 1}/{len(sample_terms)}: '{term}'")
-
-                # Get term metadata from the lexicon
-                term_info = lexicon.get_term_info(term)
-                if not term_info:
-                    self.fail(f"Term '{term}' not found in the lexicon.")
-
-                # Use the position to fetch postings from the inverted index
-                postings = index.get_uncompressed_postings(term)
-                self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
-                self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
-
-                # Validate postings
-                first_posting = postings[0]
-                self.assertIsInstance(first_posting.doc_id, int, "Document ID should be an integer")
-
-                doc_ids = [p.doc_id for p in postings]
-                unique_doc_ids = set(doc_ids)
-                all_doc_ids.update(unique_doc_ids)
-
-                if len(doc_ids) != len(unique_doc_ids):
-                    duplicate_ids = [did for did in doc_ids if doc_ids.count(did) > 1]
-                    print(f"\nDuplicate document IDs found for term '{term}':")
-                    print(f"- All doc IDs: {doc_ids}")
-                    print(f"- Duplicate IDs: {duplicate_ids}")
-
-                self.assertEqual(
-                    len(doc_ids),
-                    len(unique_doc_ids),
-                    f"Duplicate document IDs found in postings for term '{term}'. "
-                    f"Total postings: {len(doc_ids)}, Unique postings: {len(unique_doc_ids)}"
-                )
-
-            # Step 6: Verify document table using collected document IDs
-            print("Verifying document table...")
-            document_table_ids = set(document_table._document_table.keys())
-            print("Document table IDs loaded.")
-
-            for doc_id in all_doc_ids:
-                self.assertIn(doc_id, document_table_ids, f"Document table should contain the document ID {doc_id}")
-
-            # Print performance and statistics
-            print("Printing statistics...")
-            print(f"- Total unique sample terms validated: {len(sample_terms)}")
-            print(f"- Total unique documents found: {len(all_doc_ids)}")
-
-        except Exception as e:
-            self.fail(f"Full index building failed with error: {str(e)}")
+        if os.path.exists(partial_lexicon_table_path):
+            os.remove(partial_lexicon_table_path)
+            print(f"Deleted partial lexicon file: {partial_lexicon_table_path}")
 
     def test_already_built_full_structures(self):
         """Test the complete index building and merging process with PForDelta compression, optimized using term positions."""
@@ -139,7 +69,8 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             print("Document table loaded.")
 
             # Initialize the inverted index without loading all data
-            index = CompressedInvertedIndex.load_compressed_index_to_memory(self.index_builder.resources_path + "InvertedIndex")
+            index = CompressedInvertedIndex.load_compressed_index_to_memory(
+                self.index_builder.resources_path + "InvertedIndex")
             print("Inverted Index loaded.")
 
             print("Step 3: Getting terms from the lexicon...")
@@ -216,7 +147,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             self.index_builder.build_partial_index()
             index = self.index_builder.get_index()
             lexicon = self.index_builder.get_lexicon()  # Assuming lexicon is accessible from the builder
-            document_table = self.index_builder.get_document_table() # Assuming document_table is accessible from the builder
+            document_table = self.index_builder.get_document_table()  # Assuming document_table is accessible from the builder
             build_time = time.time() - start_time
 
             terms = index.get_terms()

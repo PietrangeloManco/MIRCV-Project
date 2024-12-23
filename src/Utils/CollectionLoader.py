@@ -1,15 +1,18 @@
+import gzip
+import io
+import random
 import sys
 from typing import List, Iterator
 
-from pandas import DataFrame
-import random
 import pandas as pd
-import io
-import gzip
+from pandas import DataFrame
+
+from Utils.config import RESOURCES_PATH
+
 
 class CollectionLoader:
     def __init__(self,
-                 file_path: str = "C:\\Users\\pietr\\OneDrive\\Documenti\\GitHub\\MIRCV-Project\\Files\\collection.tar.gz",
+                 file_path: str = RESOURCES_PATH + "collection.tar.gz",
                  chunk_size: int = 500000,
                  column_names: List[str] = None):
         if column_names is None:

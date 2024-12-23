@@ -1,5 +1,6 @@
-import unittest
 import os
+import unittest
+
 from Lexicon import Lexicon
 
 
@@ -50,6 +51,7 @@ class TestLexicon(unittest.TestCase):
 
     def test_build_lexicon(self):
         """Test building the lexicon from an inverted index."""
+
         class DummyInvertedIndex:
             def __init__(self):
                 self.index = {
@@ -80,6 +82,7 @@ class TestLexicon(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test if necessary."""
         pass
+
 
 if __name__ == "__main__":
     unittest.main()

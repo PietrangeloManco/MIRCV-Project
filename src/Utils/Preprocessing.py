@@ -1,13 +1,14 @@
+import logging
 import re
-from typing import List, Union, Optional
-import pandas as pd
 from functools import lru_cache
 from multiprocessing import Pool, cpu_count
+from typing import List, Union, Optional
+
+import pandas as pd
+import unicodedata
 from nltk import PorterStemmer
 from nltk.corpus import stopwords
-import logging
 from tqdm import tqdm
-import unicodedata
 
 
 class Preprocessing:

@@ -1,6 +1,8 @@
 import math
-from Lexicon.Lexicon import Lexicon
+
 from DocumentTable.DocumentTable import DocumentTable
+from Lexicon.Lexicon import Lexicon
+
 
 class Scoring:
     def __init__(self, lexicon: Lexicon, document_table: DocumentTable):
@@ -15,7 +17,7 @@ class Scoring:
             self.document_table.get_document_length(doc_id) for doc_id in self.document_table.get_all_documents())
         return total_length / self.total_documents if self.total_documents > 0 else 0
 
-    def compute_tfidf(self, term: str,  payload: int) -> float:
+    def compute_tfidf(self, term: str, payload: int) -> float:
         """Computes the TFIDF score for a given term in a document."""
 
         # Retrieve term frequency and document length

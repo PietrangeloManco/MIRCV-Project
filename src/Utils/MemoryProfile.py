@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class MemoryProfile:
     memory_per_doc: float
