@@ -1,5 +1,5 @@
 # Program Overview
-The config.py file requires the user to insert the path to resources in his system.
+The  **`config.py`** file requires the user to insert the path to resources in his system.
 
 The program includes several tests that can be run to evaluate single modules' functionalities. There are 3 main runnable modules:
 
