@@ -1,5 +1,5 @@
 # Program Overview
-
+The config.py file requires the user to insert the path to resources in his system.
 The program includes several tests that can be run to evaluate single modules' functionalities. There are 3 main runnable modules:
 
 - **`EvaluationMain.py`**: Performs an evaluation of the Retrieval System computing the NDCG over benchmark queries and assessments.
