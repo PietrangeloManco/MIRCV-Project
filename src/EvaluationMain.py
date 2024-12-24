@@ -1,3 +1,5 @@
+from typing import List, Tuple, Dict
+
 import numpy as np
 from sklearn.metrics import ndcg_score
 from tqdm import tqdm
@@ -26,15 +28,24 @@ class EvaluationMain:
         self.query_processor = QueryProcessor(
             self.query_parser, self.lexicon, self.document_table, self.inverted_index
         )
-        # Add cache for query results
-        self.query_results_cache = {}
         print("Resources loaded successfully.")
 
     @staticmethod
-    def compute_ndcg(ranked_docs, query_id, qrels):
+    def compute_ndcg(ranked_docs: Dict[int, float], query_id: int, qrels: Dict[Tuple[int, int], int]) \
+            -> float | None:
         """
-        Optimized NDCG computation using numpy arrays.
+        Actual NDCG computation.
+
+        Args:
+            ranked_docs(Dict[int,float]): Dict with doc_id as key and relevance score as value.
+            query_id(int): Query id.
+            qrels(Dict[Tuple[int, int], int]): Dict with relevance assessments associated to
+            (doc_id, query_id) pairs.
+
+        Returns:
+            float: Non discounted cumulative gain.
         """
+        # This shouldn't happen as queries without judged docs were filtered out previously.
         judged_docs = {doc_id for q, doc_id in qrels.keys() if q == query_id}
         if not judged_docs:
             return None
@@ -66,29 +77,41 @@ class EvaluationMain:
         except ValueError:
             return 0.0
 
-    def process_query(self, query_tuple, query_type, method, qrels):
+    def process_query(self, query_tuple: Tuple[int, str], query_type: str, method: str,
+                      qrels: Dict[Tuple[int, int], int]) -> float | None:
         """
-        Processes the query with caching to avoid redundant computations.
+        Processes a single query.
+
+        Args:
+            query_tuple(Tuple[int, str]): Tuple with the query_id and its text.
+            query_type(str): Conjunctive or disjunctive.
+            method(str): Scoring function to use, TFIDF or BM25.
+            qrels(Dict[Tuple[int, int], int]): Dict with relevance assessments associated to
+            (doc_id, query_id) pairs.
+
+        Returns:
+            float: Non discounted cumulative gain.
         """
         query_id, query_text = query_tuple
         if isinstance(query_id, str):
             query_id = int(query_id)
 
-        # Create a cache key
-        cache_key = (query_id, query_type, method)
-
-        # Check if we have cached results
-        if cache_key not in self.query_results_cache:
-            ranked_docs = self.query_processor.process_query(query_text, query_type, method)
-            self.query_results_cache[cache_key] = ranked_docs
-        else:
-            ranked_docs = self.query_results_cache[cache_key]
-
+        ranked_docs = self.query_processor.process_query(query_text, query_type, method)
         return self.compute_ndcg(ranked_docs, query_id, qrels)
 
-    def evaluate_all_queries(self, queries, qrels):
+    def evaluate_all_queries(self, queries: List[Tuple[int, str]], qrels: Dict[Tuple[int, int], int]) \
+            -> Dict[str, List[float]]:
         """
-        Evaluate all queries with optimized data structures and progress tracking.
+        Evaluate all queries using ndcg.
+
+        Args:
+            queries(List[Tuple[int,str]]): A list of queries and relative id.
+            qrels(Dict[Tuple[int, int], int]): A list of (doc_id, query_id) pairs with
+            relative relevance assessment.
+
+        Returns:
+            Dict[str, List[float]]: A dict with the 4 combinations of searching methods and
+            scoring functions as keys, and the lists of ndcg for each query run in the relative mode.
         """
         # Pre-process qrels for faster lookup
         query_relevance = {}
@@ -122,9 +145,9 @@ class EvaluationMain:
 
         return results
 
-    def run(self):
+    def run(self) -> None:
         """
-        Runs the evaluation process with improved progress tracking.
+        Runs the evaluation process.
         """
         print("Loading qrels and queries...")
         qrels = self.load_qrels(self.resources_path + "2020qrels-pass.txt")
@@ -139,9 +162,16 @@ class EvaluationMain:
             print(f"Average NDCG for {combination}: {avg_ndcg:.4f}")
 
     @staticmethod
-    def load_qrels(qrels_file_path):
+    def load_qrels(qrels_file_path: str) -> Dict[Tuple[int, int], int]:
         """
-        Loads the qrels file into a dictionary for quick lookup.
+        Loads the benchmark qrels file into a dictionary.
+
+        Args:
+            qrels_file_path(str): Path of the benchmark qrels file.
+
+        Returns:
+            Dict[Tuple[int, int], int]: A dict mapping [query_id, doc_id] tuples to
+            an integer relevance score.
         """
         qrels = {}
         with open(qrels_file_path, 'r') as f:
@@ -151,9 +181,15 @@ class EvaluationMain:
         return qrels
 
     @staticmethod
-    def load_queries(queries_file_path):
+    def load_queries(queries_file_path: str) -> List[Tuple[int, str]]:
         """
-        Loads the query file into a list of queries.
+        Loads the benchmark queries file into a list of queries.
+
+        Args:
+            queries_file_path(str): Path of the benchmark queries file.
+
+        Returns:
+            List[Tuple[int, str]]: A list of tuples containing queries' indexes and text.
         """
         queries = []
         with open(queries_file_path, 'r') as f:
