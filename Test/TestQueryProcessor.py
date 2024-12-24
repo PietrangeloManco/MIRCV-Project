@@ -1,3 +1,4 @@
+import os
 import time
 import unittest
 
@@ -19,12 +20,11 @@ class TestQueryProcessor(unittest.TestCase):
         It's used to create common resources needed for the tests.
         """
         # Assuming instances are being created from files or mock data
-        cls.resources_path = RESOURCES_PATH
         cls.query_parser = QueryParser(Preprocessing())  # Replace with actual initialization
-        cls.lexicon = Lexicon.load_from_file(cls.resources_path + "Lexicon")
-        cls.document_table = DocumentTable.load_from_file(cls.resources_path + "DocumentTable")
+        cls.lexicon = Lexicon.load_from_file(os.path.join(RESOURCES_PATH, "Lexicon"))
+        cls.document_table = DocumentTable.load_from_file(os.path.join(RESOURCES_PATH, "DocumentTable"))
         cls.inverted_index = CompressedInvertedIndex.load_compressed_index_to_memory(
-            cls.resources_path + "InvertedIndex")
+            os.path.join(RESOURCES_PATH, "InvertedIndex"))
         cls.query_processor = QueryProcessor(
             cls.query_parser, cls.lexicon, cls.document_table, cls.inverted_index
         )
@@ -124,7 +124,7 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_fully_retrieved_documents(self):
-        query = "information retrieval"
+        query = "where to eat pizza or pasta in rome"
         query_type = "disjunctive"
         method = "bm25"
 

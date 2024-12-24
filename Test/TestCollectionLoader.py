@@ -1,3 +1,4 @@
+import os
 import unittest
 
 import numpy as np
@@ -10,7 +11,7 @@ from src.Utils.CollectionLoader import CollectionLoader
 class TestCollectionLoader(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.collection_path = RESOURCES_PATH + "collection.tar.gz"
+        cls.collection_path = os.path.join(RESOURCES_PATH, "collection.tar.gz")
         cls.chunk_size = 1000  # Smaller chunk size for testing
         cls.loader = CollectionLoader(
             file_path=cls.collection_path,

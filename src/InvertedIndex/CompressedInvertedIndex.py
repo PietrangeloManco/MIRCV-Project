@@ -7,10 +7,16 @@ from Utils.CompressionTools import CompressionTools
 
 class CompressedInvertedIndex:
     def __init__(self):
+        # Dict
         self._compressed_index = {}
 
     def write_compressed_index_to_file(self, filename: str) -> None:
-        """Writes the inverted index to a file using PForDelta compression if needed."""
+        """
+        Writes the compressed inverted index to a file for persistent storage.
+
+        Args:
+            filename (str): the path of the final file.
+            """
         with open(filename, 'wb') as f:
             for term, compressed_data in self._compressed_index.items():
                 # Write the term as a UTF-8 encoded string
@@ -23,10 +29,18 @@ class CompressedInvertedIndex:
                 f.write(compressed_data)  # Write compressed doc_ids and frequencies
 
     @staticmethod
-    def load_compressed_index_to_memory(filename: str) -> 'CompressedInvertedIndex':
-        """Loads a compressed inverted index into memory (in compressed form)."""
+    def load_compressed_index_to_memory(filepath: str) -> 'CompressedInvertedIndex':
+        """
+        Loads a compressed inverted index into memory in compressed form.
+
+        Args:
+            filepath (str): The path of the index to load.
+
+        Returns:
+            CompressedInvertedIndex: The compressed inverted index structure saved in the file.
+        """
         index = CompressedInvertedIndex()
-        with open(filename, 'rb') as f:
+        with open(filepath, 'rb') as f:
             while True:
                 # Read the term length (2 bytes)
                 term_length_bytes = f.read(2)
@@ -36,7 +50,7 @@ class CompressedInvertedIndex:
                 term_length = struct.unpack("H", term_length_bytes)[0]
                 term = f.read(term_length).decode('utf-8')  # Decode the term
 
-                # Read the compressed doc_ids length (4 bytes)
+                # Read the compressed data length (4 bytes)
                 compressed_length_bytes = f.read(4)
                 if not compressed_length_bytes:
                     raise ValueError("Unexpected end of file when reading compressed length")
@@ -44,16 +58,25 @@ class CompressedInvertedIndex:
                 compressed_length = struct.unpack("I", compressed_length_bytes)[0]
                 compressed_data = f.read(compressed_length)
 
+                # Integrity check
                 if len(compressed_data) != compressed_length:
                     raise ValueError("Mismatch between expected and actual compressed length")
 
                 # Store the compressed data in memory
-                index._compressed_index[term] = compressed_data  # Use assignment, not append
+                index._compressed_index[term] = compressed_data
 
         return index
 
     def get_compressed_postings(self, term: str) -> bytes:
-        """Fetches the compressed postings for a given term."""
+        """
+        Fetches the compressed postings for a given term.
+
+        Args:
+            term (str): The term for which the postings are being fetched.
+
+        Returns:
+            bytes: The compressed postings.
+        """
         return self._compressed_index.get(term, b'')  # Return empty bytes if term not found
 
     def add_compressed_postings(self, term: str, compressed_postings: bytes) -> None:
@@ -72,6 +95,9 @@ class CompressedInvertedIndex:
             self._compressed_index[term] = compressed_postings
 
     def get_terms(self):
+        """
+        Getter for terms.
+        """
         return self._compressed_index.keys()
 
     def get_uncompressed_postings(self, term: str) -> List[Posting]:
@@ -79,10 +105,10 @@ class CompressedInvertedIndex:
         Fetches the uncompressed postings for a given term as a list of Posting objects.
 
         Args:
-            term: The term for which the postings are being fetched.
+            term (str): The term for which the postings are being fetched.
 
         Returns:
-            A list of Posting objects, or an empty list if the term is not found.
+            List[Posting]: A list of Posting objects, or an empty list if the term is not found.
         """
         compressed_postings = self.get_compressed_postings(term)
         if compressed_postings:
@@ -94,12 +120,12 @@ class CompressedInvertedIndex:
 
     def compress_and_add_postings(self, term: str, doc_ids: List[int], frequencies: List[int]) -> None:
         """
-        Compress and add postings for a term.
+        Compress and add postings for a term. Useful for testing of other methods.
 
         Args:
-            term: The term for which the postings are being added.
-            doc_ids: A list of document IDs.
-            frequencies: A list of term frequencies corresponding to the doc IDs.
+            term (str): The term for which the postings are being added.
+            doc_ids (List[int]): A list of document IDs.
+            frequencies (List[int]): A list of term frequencies corresponding to the doc IDs.
         """
         # Compress doc_ids and frequencies together
         compressed_data = CompressionTools.p_for_delta_compress(doc_ids, frequencies)

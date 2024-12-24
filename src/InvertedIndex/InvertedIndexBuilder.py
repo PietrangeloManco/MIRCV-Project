@@ -30,11 +30,11 @@ class InvertedIndexBuilder:
         Initialize the InvertedIndexBuilder with necessary components.
 
         Args:
-            collection_loader: Loader for the document collection
-            preprocessing: Text preprocessing utilities
-            merger: Component for merging indices
-            lexicon: Lexicon component for term management
-            document_table: Document metadata storage
+            collection_loader: Loader for the document collection.
+            preprocessing: Text preprocessing utilities.
+            merger: Component for merging partial indices.
+            lexicon: Lexicon structure to be built alongside the inverted index.
+            document_table: DocumentTable structure to be built alongside inverted index.
         """
         self.collection_loader = collection_loader
         self.preprocessing = preprocessing
@@ -42,7 +42,9 @@ class InvertedIndexBuilder:
         self.merger = merger
         self.lexicon = lexicon
         self.document_table = document_table
+        # Memory tracking tools for dynamic chunking
         self.memory_tools = MemoryTrackingTools()
+        # Global path to resources
         self.resources_path = RESOURCES_PATH
 
     def process_chunk(self, chunk: pd.DataFrame) -> InvertedIndex:
@@ -50,24 +52,25 @@ class InvertedIndexBuilder:
         Process a chunk of documents into a partial index.
 
         Args:
-            chunk: DataFrame containing documents to process
+            chunk(pd.DataFrame): DataFrame containing documents to process
 
         Returns:
-            Partial inverted index for the chunk
+            InvertedIndex: Partial inverted index for the chunk
         """
         if chunk is None or chunk.empty:
             return InvertedIndex()
 
         chunk_index = InvertedIndex()
+        # Vectorized preprocessing for speed
         tokens_list = self.preprocessing.vectorized_preprocess(chunk['text'])
 
         doc_lengths = chunk['text'].str.split().str.len()
 
-        # Update document table in bulk
+        # Update document table
         for doc_id, length in zip(chunk['index'], doc_lengths):
             self.document_table.add_document(doc_id, length)
 
-        # Track document frequency for tokens
+        # Track document frequency for tokens for Lexicon
         doc_frequency_map = {}
 
         # Process tokens and update the index
@@ -102,15 +105,15 @@ class InvertedIndexBuilder:
         total memory requirements including processing overhead.
 
         Args:
-            sample_size: Number of documents to use for profiling
+            sample_size(int): Number of documents to use for profiling.
 
         Returns:
-            MemoryProfile with memory usage estimates
+            MemoryProfile: Memory usage estimates
         """
         # Measure initial memory state
         initial_memory = self.memory_tools.get_available_memory()
         total_memory = self.memory_tools.get_total_memory()
-        gc.collect()  # Clean up before profiling
+        gc.collect()  # Force clean up before profiling
 
         # Process sample and measure memory impact
         try:
@@ -135,11 +138,21 @@ class InvertedIndexBuilder:
             gc.collect()
 
     def _process_and_save_chunk(self, chunk: DataFrame, index_num: int) -> str:
-        """Process a chunk and save its compressed index."""
+        """
+        Process a chunk and save its partial compressed index.
+
+        Args:
+            chunk(DataFrame): Chunk of documents to process.
+            index_num(int): Ordinal number to track the partial indices building.
+
+        Returns:
+            str: The path to the partial inverted index.
+        """
         chunk_index = self.process_chunk(chunk)
         index_path = self.resources_path + f"Compressed_Index_{index_num}.vb"
         chunk_index.write_index_compressed_to_file(index_path)
 
+        # Free up the memory used and force garbage collection
         del chunk_index
         gc.collect()
 
@@ -148,21 +161,20 @@ class InvertedIndexBuilder:
     def build_partial_indices(self, use_static_chunk_size: bool = False, static_chunk_size: Optional[int] = None) -> \
             List[str]:
         """
-        Build partial compressed indices with dynamic or static chunk sizing based on memory profiling or fixed chunk size.
+        Build partial compressed indices with dynamic chunk sizing based on memory profiling or fixed chunk size.
 
         Args:
-            use_static_chunk_size: Whether to use a static chunk size
-            static_chunk_size: The static chunk size to use if `use_static_chunk_size` is True
+            use_static_chunk_size: Whether to use a static chunk size. Default is False.
+            static_chunk_size: The static chunk size to use if `use_static_chunk_size` is True.
 
         Returns:
-            List of paths to partial indices
+            List[str]: List of paths to partial indices.
         """
         if use_static_chunk_size:
             if not static_chunk_size:
                 raise ValueError("Static chunk size must be provided when using static chunk size.")
             return self._process_with_static_chunk_size(static_chunk_size)
 
-        # Default dynamic chunk size logic (previous code)
         total_docs = self.collection_loader.get_total_docs()
         print(f"Processing {total_docs} documents...")
 
@@ -179,6 +191,7 @@ class InvertedIndexBuilder:
         print(f"Memory profiling results:")
         print(f"- Memory per document (with overhead): {memory_profile.memory_per_doc / 1024 / 1024:.2f} MB")
         print(f"- Recommended chunk size: {memory_profile.estimated_chunk_size} documents")
+        # Safe limit for the initial run, in which the profiler tends to underestimate memory impact.
         if memory_profile.estimated_chunk_size > 1000000:
             print("Using default chunk size of 1.0 million documents")
         # Process the collection in chunks
@@ -219,7 +232,14 @@ class InvertedIndexBuilder:
         return partial_indices_paths
 
     def build_full_index(self, use_static_chunk_size: bool = False, static_chunk_size: Optional[int] = None) -> None:
-        """Build and save the complete inverted index with an optional static chunk size."""
+        """
+        Build and save the complete compressed inverted index, lexicon
+        and document table with an optional static chunk size.
+
+        Args:
+            use_static_chunk_size(bool): Whether to use or not the static chunking option. Default is False.
+            static_chunk_size(Optional[int]): If the static chunking is used, size of the chunk.
+        """
         try:
             partial_indices_paths = self.build_partial_indices(use_static_chunk_size, static_chunk_size)
 
@@ -245,10 +265,10 @@ class InvertedIndexBuilder:
 
     def build_partial_index(self, sample_size: int = 10000) -> None:
         """
-        Build a sample index for testing/development.
+        Build a partial compressed inverted index for testing.
 
         Args:
-            sample_size: Number of documents to sample
+            sample_size(int): Number of documents to sample. Default 10000.
         """
         try:
             sample_df = self.collection_loader.sample_lines(sample_size)
@@ -273,10 +293,10 @@ class InvertedIndexBuilder:
         Process and build indices using a static chunk size.
 
         Args:
-            static_chunk_size: The static chunk size to use for processing
+            static_chunk_size(int): The static chunk size to use for processing.
 
         Returns:
-            List of paths to the partial indices
+            List[str]: List of paths to the partial indices.
         """
         total_docs = self.collection_loader.get_total_docs()
         print(f"Processing {total_docs} documents with static chunk size of {static_chunk_size}...")
@@ -300,19 +320,30 @@ class InvertedIndexBuilder:
 
     @staticmethod
     def _delete_partial_indices(partial_indices_paths: List[str]) -> None:
-        """Clean up intermediate index files."""
+        """
+        Clean up intermediate index files.
+
+        Args:
+            partial_indices_paths(List[str]): The list of paths to the partial indexes to delete.
+        """
         for path in partial_indices_paths:
             os.remove(path)
             print(f"Deleted intermediate index file: {path}")
 
     def get_index(self) -> CompressedInvertedIndex:
-        """Return the built inverted index."""
+        """
+        Getter for the built compressed inverted index.
+        """
         return self.compressed_inverted_index
 
     def get_lexicon(self) -> Lexicon:
-        """Return the lexicon component."""
+        """
+        Getter for the built lexicon.
+        """
         return self.lexicon
 
     def get_document_table(self) -> DocumentTable:
-        """Return the document table component."""
+        """
+        Getter for the built document table.
+        """
         return self.document_table

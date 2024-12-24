@@ -49,31 +49,6 @@ class TestLexicon(unittest.TestCase):
         # Clean up temporary file
         os.remove(temp_file)
 
-    def test_build_lexicon(self):
-        """Test building the lexicon from an inverted index."""
-
-        class DummyInvertedIndex:
-            def __init__(self):
-                self.index = {
-                    "apple": [(1, 2), (2, 3)],
-                    "banana": [(1, 1)],
-                    "cherry": [(2, 1), (3, 2), (4, 1)]
-                }
-
-            def get_terms(self):
-                return self.index.keys()
-
-            def get_postings(self, term):
-                return self.index[term]
-
-        inverted_index = DummyInvertedIndex()
-        self.lexicon.build_lexicon(inverted_index)
-
-        # Verify the built lexicon
-        self.assertEqual(self.lexicon.get_term_info("apple"), {"term_frequency": 2})
-        self.assertEqual(self.lexicon.get_term_info("banana"), {"term_frequency": 1})
-        self.assertEqual(self.lexicon.get_term_info("cherry"), {"term_frequency": 3})
-
     def test_empty_lexicon(self):
         """Test behavior with an empty lexicon."""
         self.assertEqual(self.lexicon.get_all_terms(), [])

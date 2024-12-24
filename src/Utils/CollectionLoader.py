@@ -1,29 +1,43 @@
 import gzip
 import io
+import os
 import random
 import sys
 from typing import List, Iterator
 
 import pandas as pd
-from pandas import DataFrame
 
 from Utils.config import RESOURCES_PATH
 
 
 class CollectionLoader:
     def __init__(self,
-                 file_path: str = RESOURCES_PATH + "collection.tar.gz",
+                 file_path: str = os.path.join(RESOURCES_PATH, "collection.tar.gz"),
                  chunk_size: int = 500000,
                  column_names: List[str] = None):
+        """
+        Initialization of the CollectionLoader class.
+
+        Args:
+            file_path(str): Collection file path.
+            chunk_size(int): Number of documents to process at a time. Default is 500000.
+            column_names(List[str]): Documents will be loaded in a dataframe: columns identifiers.
+            default is 'index', 'text'.
+        """
         if column_names is None:
             column_names = ['index', 'text']
         self.file_path = file_path
         self.chunk_size = chunk_size
         self.column_names = column_names
-        self._total_docs = None  # Cache for total documents count
+        self._total_docs = None
 
     def get_total_docs(self) -> int:
-        """Get total number of documents in collection"""
+        """
+        Get the total number of documents in the collection.
+
+        Returns:
+            int: the total number of documents in the collection.
+        """
         if self._total_docs is None:
             print("Computing documents number...")
             # Count lines efficiently without loading the file
@@ -37,11 +51,11 @@ class CollectionLoader:
         Process a single chunk of the collection starting from a given line.
 
         Args:
-            start: Line number to start reading from.
-            chunk_size: Number of lines to read in the chunk.
+            start(int): Line number to start reading from.
+            chunk_size(int): Number of lines to read in the chunk.
 
         Returns:
-            DataFrame: DataFrame containing the processed chunk.
+            pd.DataFrame: DataFrame containing the processed chunk.
         """
         chunk = []
 
@@ -70,10 +84,10 @@ class CollectionLoader:
 
     def process_chunks(self, chunk_size: int = None) -> Iterator[pd.DataFrame]:
         """
-        Process the entire collection in chunks, yielding DataFrames.
+        Process the entire collection in chunks, yielding DataFrames at each iteration.
 
         Args:
-            chunk_size: Optional override for chunk size.
+            chunk_size: Optional override for chunk size. Default is 500000.
 
         Yields:
             DataFrame: Chunk of documents.
@@ -90,13 +104,13 @@ class CollectionLoader:
 
     def sample_lines(self, num_lines: int = 10) -> pd.DataFrame:
         """
-        Sample random lines from collection using reservoir sampling
+        Sample random lines from collection using reservoir sampling.
 
         Args:
-            num_lines: Number of lines to sample
+            num_lines(int): Number of lines to sample. Default is 10.
 
         Returns:
-            DataFrame: Sampled documents
+            pd.DataFrame: Sampled documents.
         """
         self._total_docs = num_lines
         with gzip.open(self.file_path, 'rt', encoding='utf-8') as f:
@@ -128,29 +142,30 @@ class CollectionLoader:
 
         return sample_df
 
-    def get_documents_by_ids(self, docids: List[int]) -> List[str]:
+    def get_documents_by_ids(self, doc_ids: List[int]) -> List[str]:
         """
-        Retrieves the documents corresponding to the given list of docids.
+        Retrieves the text of documents corresponding to the given list of doc_ids.
+        Useful for testing.
 
         Args:
-            docids: List of document IDs to retrieve.
+            doc_ids(List[int]): List of document IDs to retrieve.
 
         Returns:
-            List of str: A list of document texts.
+            List[str]: A list of document texts.
         """
         documents = []
         # Iterate over chunks of the collection
         for chunk in self.process_chunks(sys.maxsize):
-            # Filter the chunk for matching docids
-            matching_docs = chunk[chunk['index'].isin(docids)]
+            # Filter the chunk for matching doc_ids
+            matching_docs = chunk[chunk['index'].isin(doc_ids)]
 
             # If matching documents exist in this chunk, extract the text
             if not matching_docs.empty:
                 documents.extend(matching_docs['text'].tolist())
 
             # If we've found all documents, we can stop early
-            if len(documents) == len(docids):
+            if len(documents) == len(doc_ids):
                 break
 
         # Return the list of document texts (or a message if not found)
-        return documents if documents else ["Not existing document" for _ in docids]
+        return documents if documents else ["Not existing document" for _ in doc_ids]

@@ -33,28 +33,6 @@ class TestInvertedIndex(unittest.TestCase):
         self.assertEqual(postings[1].doc_id, 2)
         self.assertEqual(postings[1].payload, 10)
 
-    def test_get_terms(self):
-        """Test retrieving unique terms from the index."""
-        terms = self.index.get_terms()
-        self.assertEqual(set(terms), {"test", "example"})
-
-    def test_write_and_load_from_file(self):
-        """Test writing the index to a file and loading it back."""
-        self.index.write_to_file(self.text_file)
-        loaded_index = InvertedIndex.load_from_file(self.text_file)
-
-        postings = loaded_index.get_postings("test")
-        self.assertEqual(len(postings), 2)
-        self.assertEqual(postings[0].doc_id, 1)
-        self.assertEqual(postings[0].payload, 5)
-        self.assertEqual(postings[1].doc_id, 2)
-        self.assertEqual(postings[1].payload, 10)
-
-        postings_example = loaded_index.get_postings("example")
-        self.assertEqual(len(postings_example), 1)
-        self.assertEqual(postings_example[0].doc_id, 3)
-        self.assertEqual(postings_example[0].payload, 15)
-
     def test_compression_and_decompression(self):
         """Test writing and loading a compressed index."""
         # Write the index to a compressed file

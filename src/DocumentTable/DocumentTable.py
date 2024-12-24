@@ -3,6 +3,7 @@ from typing import Dict
 
 class DocumentTable:
     def __init__(self):
+        # Dict
         self._document_table = {}
 
     def add_document(self, doc_id: int, length: int) -> None:
@@ -11,7 +12,7 @@ class DocumentTable:
 
         Args:
             doc_id (int): The unique identifier of the document.
-            length (int): The number of terms in the document (for scoring).
+            length (int): The number of terms in the document.
         """
         self._document_table[doc_id] = length
 
@@ -64,19 +65,3 @@ class DocumentTable:
                 doc_id, length = map(int, line.strip().split())
                 document_table.add_document(doc_id, length)
         return document_table
-
-    def build_document_table(self, documents_metadata: list[dict]) -> Dict[int, int]:
-        """
-        Builds a document table using metadata about documents.
-
-        Args:
-            documents_metadata (list of dict): A list containing metadata for each document.
-
-        Returns:
-            Dict[int, int]: A document table mapping document IDs to their lengths.
-        """
-        for doc_metadata in documents_metadata:
-            doc_id = doc_metadata["doc_id"]
-            length = doc_metadata["length"]
-            self.add_document(doc_id, length)
-        return self._document_table
