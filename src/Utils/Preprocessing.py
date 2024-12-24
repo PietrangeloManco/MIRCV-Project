@@ -12,8 +12,41 @@ from tqdm import tqdm
 
 
 class Preprocessing:
-    def __init__(self, use_cache=True, stopwords_flag=True, stem_flag=True, min_word_length=2):
-        # Initialize attributes
+    # Compile regex patterns as class variables to avoid repetition
+    NOISE_PATTERN = re.compile(
+        r'\b(?:function|var|push|typeof|null|undefined'
+        r'|ajax_fade|page_not_loaded|wpb-js-composer'
+        r'|jquery|onclick|onload|script|style)\b'
+    )
+
+    URL_PATTERN = re.compile(
+        r'''
+        (?:https?://|www\.)?              # Optional protocol or www
+        (?:[a-zA-Z0-9-]+\.)+             # Domain parts
+        [a-zA-Z]{2,}                      # TLD
+        (?:/[^\s<>]*)?                    # Optional path
+        |                                 # OR
+        (?:[a-zA-Z0-9-]+\.)+             # Domain without protocol
+        (?:com|org|edu|gov|net|io|ai|app|dev|co|uk|us|eu|de|fr|it|es|nl)
+        (?:/[^\s<>]*)?                    # Optional path
+        ''', re.VERBOSE | re.IGNORECASE)
+
+    HTML_PATTERN = re.compile(r'<[^>]+>')
+    SCRIPT_STYLE_PATTERN = re.compile(r'<(script|style)[^>]*>.*?</\1>', re.DOTALL)
+    NON_WORD_PATTERN = re.compile(r'[^\w\s-]')
+    WHITESPACE_PATTERN = re.compile(r'\s+')
+
+    def __init__(self, use_cache: bool = True, stopwords_flag: bool = True,
+                 stem_flag: bool = True, min_word_length: int = 2):
+        """
+        Preprocessing class initialization.
+
+        Args:
+            use_cache(bool): Flag to decide if using the cache or not. Default is true.
+            stopwords_flag(bool): Flag to decide if performing stopwords removal or not. Default is true.
+            stem_flag(bool): Flag to decide if performing stepping or not. Default is true.
+            min_word_length(int): Minimum valid word length. Default is 2.
+        """
         self.stop_words = set(stopwords.words('english'))
         self.stemmer = PorterStemmer()
         self.use_cache = use_cache
@@ -21,76 +54,50 @@ class Preprocessing:
         self.stem_flag = stem_flag
         self.min_word_length = min_word_length
 
-        # Compile regex patterns
-        self._noise_pattern = re.compile(
-            r'\b(?:function|var|push|typeof|null|undefined'
-            r'|ajax_fade|page_not_loaded|wpb-js-composer'
-            r'|jquery|onclick|onload|script|style)\b'
-        )
-
-        # Enhanced URL pattern to catch more variants
-        self._url_pattern = re.compile(
-            r'''
-            (?:https?://|www\.)?              # Optional protocol or www
-            (?:[a-zA-Z0-9-]+\.)+             # Domain parts
-            [a-zA-Z]{2,}                      # TLD
-            (?:/[^\s<>]*)?                    # Optional path
-            |                                 # OR
-            (?:[a-zA-Z0-9-]+\.)+             # Domain without protocol
-            (?:com|org|edu|gov|net|io|ai|app|dev|co|uk|us|eu|de|fr|it|es|nl)
-            (?:/[^\s<>]*)?                    # Optional path
-            ''', re.VERBOSE | re.IGNORECASE)
-
-        self._html_pattern = re.compile(r'<[^>]+>')
-
     @staticmethod
     @lru_cache
     def clean_text(text: str) -> Optional[str]:
+        """
+        Method to perform text cleaning.
+
+        Args:
+            text(str): The text to clean.
+
+        Returns:
+            Optional[str]: If something is left, it's returned.
+        """
         if not isinstance(text, str) or not text.strip():
             return None
 
         # Normalize text
-        text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
+        text = (unicodedata.normalize('NFKD', text).encode('ascii', 'ignore')
+                .decode('utf-8', 'ignore'))
 
-        # Remove HTML tags
-        text = re.sub(r'<[^>]+>', ' ', text)
+        # Remove HTML, script, and style content
+        text = Preprocessing.HTML_PATTERN.sub(' ', text)
+        text = Preprocessing.SCRIPT_STYLE_PATTERN.sub(' ', text)
 
-        # Remove obvious script content
-        text = re.sub(r'<script[^>]*>.*?</script>', ' ', text, flags=re.DOTALL)
-        text = re.sub(r'<style[^>]*>.*?</style>', ' ', text, flags=re.DOTALL)
-
-        # Remove specific noise patterns
-        text = re.sub(
-            r'\b(?:function|var|push|typeof|null|undefined'
-            r'|ajax_fade|page_not_loaded|wpb-js-composer'
-            r'|jquery|onclick|onload|script|style)\b',
-            ' ', text
-        )
-
-        # Enhanced URL removal using the same pattern as in _url_pattern
-        text = re.sub(
-            r'''
-            (?:https?://|www\.)?              # Optional protocol or www
-            (?:[a-zA-Z0-9-]+\.)+             # Domain parts
-            [a-zA-Z]{2,}                      # TLD
-            (?:/[^\s<>]*)?                    # Optional path
-            |                                 # OR
-            (?:[a-zA-Z0-9-]+\.)+             # Domain without protocol
-            (?:com|org|edu|gov|net|io|ai|app|dev|co|uk|us|eu|de|fr|it|es|nl)
-            (?:/[^\s<>]*)?                    # Optional path
-            ''',
-            ' ', text, flags=re.VERBOSE | re.IGNORECASE)
+        # Remove noise and URLs
+        text = Preprocessing.NOISE_PATTERN.sub(' ', text)
+        text = Preprocessing.URL_PATTERN.sub(' ', text)
 
         # Clean up remaining text
-        text = re.sub(r'[^\w\s-]', ' ', text)  # Keep hyphens for compound words
-        text = re.sub(r'\s+', ' ', text)
+        text = Preprocessing.NON_WORD_PATTERN.sub(' ', text)
+        text = Preprocessing.WHITESPACE_PATTERN.sub(' ', text)
 
+        # Lower and strip
         cleaned = text.strip().lower()
         return cleaned if cleaned else None
 
     def tokenize(self, text: str) -> List[str]:
         """
         Tokenize text and remove remnants of URLs or invalid tokens.
+
+        Args:
+            text(str): Text to tokenize.
+
+        Returns:
+            List[str]: A list of tokens.
         """
         if not text:
             return []
@@ -103,23 +110,54 @@ class Preprocessing:
         ]
 
         # Additional URL fragment cleanup
-        tokens = [token for token in tokens if not self._url_pattern.search(token)]
+        tokens = [token for token in tokens if not self.URL_PATTERN.search(token)]
         return tokens
 
-    # Rest of the class remains the same...
     def remove_stopwords(self, tokens: List[str]) -> List[str]:
+        """
+        Stopwords removal method.
+
+        Args:
+            tokens(List[str]): List of tokens to remove stopwords from.
+
+        Returns:
+            List[str]: List of tokens without stopwords.
+        """
         return [word for word in tokens if word not in self.stop_words]
 
     def stem_tokens(self, tokens: List[str]) -> List[str]:
+        """
+        Stemming method.
+
+        Args:
+            tokens(List[str]): List of tokens to stem.
+
+        Returns:
+            List[str]: List of stemmed tokens.
+        """
         return [self.stemmer.stem(word) for word in tokens]
 
     def _process_text_helper(self, args: tuple) -> List[str]:
+        """
+        Helper function to perform the parallel vectorized preprocessing.
+
+        Args:
+            args(tuple): A tuple containing the arguments to pass to the single text preprocess method.
+
+        Returns: A list of preprocessed tokens.
+        """
         text, stopwords_flag, stem_flag = args
         return self.single_text_preprocess(text)
 
     def single_text_preprocess(self, text: str) -> List[str]:
         """
-        Process a single text document with balanced filtering.
+        Process a single text document.
+
+        Args:
+            text(str): Text to process.
+
+        Returns:
+            List[str]: List of preprocessed tokens.
         """
         try:
             if not text:
@@ -144,6 +182,15 @@ class Preprocessing:
             return []
 
     def vectorized_preprocess(self, texts: Union[pd.Series, List[str]]) -> List[List[str]]:
+        """
+        Method to perform an efficient vectorized preprocessing.
+
+        Args:
+            texts(List[str]): A list of texts to preprocess.
+
+        Returns:
+            List[List[str]]: A list of lists of tokens, one for each input text.
+        """
         if isinstance(texts, pd.Series):
             texts = texts.tolist()
 

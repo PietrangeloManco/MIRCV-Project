@@ -11,7 +11,7 @@ from Utils.Preprocessing import Preprocessing
 from Utils.config import RESOURCES_PATH
 
 
-class EvaluationCLI:
+class EvaluationMain:
     def __init__(self):
         """
         Initializes the CLI by loading the required structures into memory.
@@ -165,5 +165,5 @@ class EvaluationCLI:
 
 
 if __name__ == "__main__":
-    cli = EvaluationCLI()
+    cli = EvaluationMain()
     cli.run()

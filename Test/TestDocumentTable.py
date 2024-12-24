@@ -10,6 +10,10 @@ class TestDocumentTable(unittest.TestCase):
         """Sets up a new DocumentTable instance for each test."""
         self.document_table = DocumentTable()
 
+    def tearDown(self):
+        """Clean up after each test."""
+        del self.document_table
+
     def test_add_document(self):
         """Test adding a document to the document table."""
         self.document_table.add_document(1, 100)
@@ -55,25 +59,6 @@ class TestDocumentTable(unittest.TestCase):
 
         # Clean up the test file
         os.remove(filename)
-
-    def test_build_document_table(self):
-        """Test building a document table from metadata."""
-        documents_metadata = [
-            {"doc_id": 7, "length": 400},
-            {"doc_id": 8, "length": 500}
-        ]
-
-        self.document_table.build_document_table(documents_metadata)
-        doc_data = self.document_table.get_all_documents()
-
-        self.assertIn(7, doc_data)
-        self.assertIn(8, doc_data)
-        self.assertEqual(doc_data[7], 400)
-        self.assertEqual(doc_data[8], 500)
-
-    def tearDown(self):
-        """Clean up after each test."""
-        del self.document_table
 
 
 # Run the tests

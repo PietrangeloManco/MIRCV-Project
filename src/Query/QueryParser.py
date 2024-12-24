@@ -7,15 +7,21 @@ class QueryParser:
     def __init__(self, preprocessing: Preprocessing):
         """
         Initializes the QueryParser.
-        :param preprocessing: An instance of the Preprocessing class for text preprocessing.
+
+        Args:
+            preprocessing: An instance of the Preprocessing class for text preprocessing.
         """
         self.preprocessing = preprocessing
 
     def parse(self, query: str) -> List[str]:
         """
         Parses and tokenizes the input query string.
-        :param query: The query string.
-        :return: A list of query terms after tokenization and preprocessing.
+
+        Args:
+            query(str): The query string.
+
+        Returns:
+             A list of query terms after tokenization and preprocessing.
         """
         if not query:
             return []
