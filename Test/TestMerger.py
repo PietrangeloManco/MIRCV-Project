@@ -12,11 +12,14 @@ class TestMerger(unittest.TestCase):
         """Set up test data and actual objects."""
         self.merger = Merger()
 
-        # Create some test terms and postings data
+        # Track test files to clean up later
+        self.test_files = []
+
+        # Test terms
         self.term1 = "apple"
         self.term2 = "banana"
 
-        # Let's create some simple postings data (doc_id, frequency)
+        # Simple postings data (doc_id, frequency)
         doc_ids1 = [1, 2, 3]
         frequencies1 = [1, 2, 3]
         doc_ids2 = [2, 3, 4]
@@ -34,6 +37,12 @@ class TestMerger(unittest.TestCase):
         self.index1.add_compressed_postings(self.term1, self.postings1)
         self.index1.add_compressed_postings(self.term2, self.postings2)
         self.index2.add_compressed_postings(self.term1, self.postings2)  # term1 also in index2
+
+    def tearDown(self):
+        """Clean up any files created during testing."""
+        for file_path in self.test_files:
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
     def test_merge_compressed_postings(self):
         """Test the merging of compressed postings."""
@@ -78,13 +87,14 @@ class TestMerger(unittest.TestCase):
         index3 = CompressedInvertedIndex()
         index3.add_compressed_postings(term3, postings3)
 
-        # Save paths for the indices (we will assume they are saved and can be loaded)
+        # Save paths for the indices
         index_paths = ["index1", "index2", "index3"]
 
-        # Save the indices to memory, for testing purposes
-        CompressedInvertedIndex.write_compressed_index_to_file(self.index1, "index1")
-        CompressedInvertedIndex.write_compressed_index_to_file(self.index2, "index2")
-        CompressedInvertedIndex.write_compressed_index_to_file(index3, "index3")
+        # Save the indices to files and track the filenames
+        for idx, index in enumerate([self.index1, self.index2, index3], start=1):
+            file_name = f"index{idx}"
+            index.write_compressed_index_to_file(file_name)
+            self.test_files.append(file_name)
 
         # Merge the indices
         final_index = self.merger.merge_multiple_compressed_indices(index_paths)
@@ -94,9 +104,6 @@ class TestMerger(unittest.TestCase):
         self.assertTrue(self.term2 in final_index.get_terms())
         self.assertTrue(term3 in final_index.get_terms())
 
-        for i in range(1, 4):
-            os.remove(f"index{i}")
-
     def test_merge_empty_indices(self):
         """Test the case when no indices are provided."""
         with self.assertRaises(ValueError):
@@ -104,21 +111,43 @@ class TestMerger(unittest.TestCase):
 
     def test_merge_single_index(self):
         """Test merging a single index (no merging actually happens)."""
-        CompressedInvertedIndex.write_compressed_index_to_file(self.index1, "index1")
-        index_paths = ["index1"]
+        file_name = "index1"
+        self.index1.write_compressed_index_to_file(file_name)
+        self.test_files.append(file_name)
+
+        index_paths = [file_name]
 
         # Merge a single index
         final_index = self.merger.merge_multiple_compressed_indices(index_paths)
 
-        # Iterate over each term in final_index and assert that the postings match with self.index1
+        # Verify terms in the final index
+        self.assertEqual(
+            set(final_index.get_terms()),
+            set(self.index1.get_terms()),
+            "Terms in the final index do not match the original index."
+        )
+
+        # Compare the postings for each term
         for term in final_index.get_terms():
-            # Get uncompressed postings for the term from both final_index and self.index1
             final_postings = final_index.get_uncompressed_postings(term)
             original_postings = self.index1.get_uncompressed_postings(term)
 
-            # Assert that the postings are equal for the term
-            self.assertEqual(final_postings, original_postings, f"Postings for term '{term}' do not match.")
-        os.remove("index1")
+            # Extract doc_id and frequency from the postings
+            final_postings_data = [(p.doc_id, p.payload) for p in final_postings]
+            original_postings_data = [(p.doc_id, p.payload) for p in original_postings]
+
+            # Debugging: Log mismatched postings
+            if final_postings_data != original_postings_data:
+                print(f"Mismatch for term '{term}':")
+                print(f"Final postings data: {final_postings_data}")
+                print(f"Original postings data: {original_postings_data}")
+
+            # Assert that the data matches
+            self.assertEqual(
+                final_postings_data,
+                original_postings_data,
+                f"Postings data for term '{term}' do not match."
+            )
 
 
 if __name__ == "__main__":

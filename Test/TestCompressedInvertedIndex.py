@@ -18,7 +18,7 @@ class TestCompressedInvertedIndex(unittest.TestCase):
         # Compress and add the postings
         self.index.compress_and_add_postings(self.term, self.doc_ids, self.frequencies)
 
-        # Test file names
+        # Test files
         self.compressed_file = "test_compressed_index.bin"
         self.text_file = "test_index.txt"
 
@@ -38,7 +38,7 @@ class TestCompressedInvertedIndex(unittest.TestCase):
     def test_get_uncompressed_postings(self):
         """Test fetching and decompressing postings for a given term."""
         postings = self.index.get_uncompressed_postings(self.term)
-        self.assertEqual(len(postings), 3)  # We added 3 postings for this term
+        self.assertEqual(len(postings), 3)
         self.assertEqual(postings[0].doc_id, 1)
         self.assertEqual(postings[0].payload, 5)
         self.assertEqual(postings[1].doc_id, 2)
