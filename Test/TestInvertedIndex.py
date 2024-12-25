@@ -13,7 +13,7 @@ class TestInvertedIndex(unittest.TestCase):
         self.index.add_posting("test", 2, 10)
         self.index.add_posting("example", 3, 15)
 
-        # Test file names
+        # Test files
         self.text_file = "test_index.txt"
         self.compressed_file = "test_compressed_index.bin"
 

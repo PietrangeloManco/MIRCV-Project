@@ -15,7 +15,7 @@ from Utils.config import RESOURCES_PATH
 class TestInvertedIndexBuilder(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """Set up shared test fixtures for CollectionLoader and Preprocessing."""
+        """Set up class test structures."""
         cls.collection_loader = CollectionLoader()
         cls.preprocessing = Preprocessing()
         cls.merger = Merger()
@@ -34,8 +34,8 @@ class TestInvertedIndexBuilder(unittest.TestCase):
         )
 
     def tearDown(self):
-        """Clean up any leftover files from the tests, specifically partial indices."""
-        # Path to the partial index file that needs to be removed after the test
+        """Clean up any leftover files from the tests."""
+        # Path to the files to remove after tests
         partial_index_path = self.resources_path + "Compressed_Index_1.vb"
         partial_document_table_path = self.resources_path + "partial_document_table.txt"
         partial_lexicon_table_path = self.resources_path + "partial_lexicon.txt"
@@ -54,7 +54,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             print(f"Deleted partial lexicon file: {partial_lexicon_table_path}")
 
     def test_already_built_full_structures(self):
-        """Test the complete index building and merging process with PForDelta compression, optimized using term positions."""
+        """Test the structures previously built work as expected."""
 
         try:
             print("Step 1: Loading the total number of documents...")
@@ -68,7 +68,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             document_table = DocumentTable.load_from_file(self.index_builder.resources_path + "DocumentTable")
             print("Document table loaded.")
 
-            # Initialize the inverted index without loading all data
+            # Initialize the inverted index
             index = CompressedInvertedIndex.load_compressed_index_to_memory(
                 self.index_builder.resources_path + "InvertedIndex")
             print("Inverted Index loaded.")
@@ -84,7 +84,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
 
             all_doc_ids = set()
 
-            # Validate sample terms using lexicon and document table for efficient access
+            # Validate sample terms
             print("Step 4: Validating sample terms...")
             for i, term in enumerate(sample_terms):
                 if i % 10 == 0:
@@ -95,7 +95,6 @@ class TestInvertedIndexBuilder(unittest.TestCase):
                 if not term_info:
                     self.fail(f"Term '{term}' not found in the lexicon.")
 
-                # Use the position to fetch postings from the inverted index
                 postings = index.get_uncompressed_postings(term)
                 self.assertIsNotNone(postings, f"Postings should exist for term '{term}'")
                 self.assertGreater(len(postings), 0, f"Postings list should not be empty for term '{term}'")
@@ -138,16 +137,16 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             self.fail(f"Full structures validation error: {str(e)}")
 
     def test_build_partial_index(self):
-        """Test partial index building with sampled documents"""
+        """Test partial index building with randomly sampled documents."""
         start_time = time.time()
-        expected_sample_size = 10000  # The sample size we expect from build_partial_index
+        expected_sample_size = 10000  # The sample size expected from build_partial_index (default)
 
         try:
             # Build the partial index
             self.index_builder.build_partial_index()
             index = self.index_builder.get_index()
-            lexicon = self.index_builder.get_lexicon()  # Assuming lexicon is accessible from the builder
-            document_table = self.index_builder.get_document_table()  # Assuming document_table is accessible from the builder
+            lexicon = self.index_builder.get_lexicon()
+            document_table = self.index_builder.get_document_table()
             build_time = time.time() - start_time
 
             terms = index.get_terms()

@@ -10,10 +10,6 @@ class TestDocumentTable(unittest.TestCase):
         """Sets up a new DocumentTable instance for each test."""
         self.document_table = DocumentTable()
 
-    def tearDown(self):
-        """Clean up after each test."""
-        del self.document_table
-
     def test_add_document(self):
         """Test adding a document to the document table."""
         self.document_table.add_document(1, 100)
@@ -34,7 +30,7 @@ class TestDocumentTable(unittest.TestCase):
         # The document with id 4 doesn't exist
         length = self.document_table.get_document_length(4)
 
-        # Should return default values: 0 for length and offset
+        # Should return default value 0 for length
         self.assertEqual(length, 0)
 
     def test_write_and_load_from_file(self):
@@ -46,19 +42,22 @@ class TestDocumentTable(unittest.TestCase):
         filename = "document_table_test.txt"
         self.document_table.write_to_file(filename)
 
-        # Load the document table from the file
-        loaded_document_table = DocumentTable.load_from_file(filename)
+        # Try-finally to ensure deletion of temp file even in case of failure
+        try:
+            # Load the document table from the file
+            loaded_document_table = DocumentTable.load_from_file(filename)
 
-        # Check if the data is correctly loaded
-        loaded_data = loaded_document_table.get_all_documents()
+            # Check if the data is correctly loaded
+            loaded_data = loaded_document_table.get_all_documents()
 
-        self.assertIn(5, loaded_data)
-        self.assertIn(6, loaded_data)
-        self.assertEqual(loaded_data[5], 250)
-        self.assertEqual(loaded_data[6], 300)
+            self.assertIn(5, loaded_data)
+            self.assertIn(6, loaded_data)
+            self.assertEqual(loaded_data[5], 250)
+            self.assertEqual(loaded_data[6], 300)
 
         # Clean up the test file
-        os.remove(filename)
+        finally:
+            os.remove(filename)
 
 
 # Run the tests

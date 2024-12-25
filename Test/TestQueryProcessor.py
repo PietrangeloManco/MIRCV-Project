@@ -15,12 +15,8 @@ from Utils.config import RESOURCES_PATH
 class TestQueryProcessor(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """
-        This method is called once before any test in the class is executed.
-        It's used to create common resources needed for the tests.
-        """
-        # Assuming instances are being created from files or mock data
-        cls.query_parser = QueryParser(Preprocessing())  # Replace with actual initialization
+        """Class resources."""
+        cls.query_parser = QueryParser(Preprocessing())
         cls.lexicon = Lexicon.load_from_file(os.path.join(RESOURCES_PATH, "Lexicon"))
         cls.document_table = DocumentTable.load_from_file(os.path.join(RESOURCES_PATH, "DocumentTable"))
         cls.inverted_index = CompressedInvertedIndex.load_compressed_index_to_memory(
