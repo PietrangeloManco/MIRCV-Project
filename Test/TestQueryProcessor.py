@@ -26,23 +26,23 @@ class TestQueryProcessor(unittest.TestCase):
         )
 
     def test_conjunctive_query_tfidf(self):
+        """Test of the processing of a conjunctive query with tfidf scoring."""
         query = "information retrieval"
         query_type = "conjunctive"
         method = "tfidf"
 
         start_time = time.time()
-        # Call the method with a sample query and check if it's processed correctly
         ranked_docs = self.query_processor.process_query(query, query_type, method)
         end_time = time.time()
 
-        doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
+        doc_ids = list(ranked_docs.keys())
 
         print(f"Retrieved in {end_time - start_time}")
-        # Print the documents along with their scores
+        # Print the document ids along with their scores
         for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
 
-        # Add checks based on your expected outcomes
+        # Checks
         self.assertIsInstance(ranked_docs, dict)
         self.assertGreaterEqual(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order
@@ -50,19 +50,20 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_disjunctive_query_tfidf(self):
+        """Test of the processing of a disjunctive query with tfidf scoring."""
         query = "information retrieval"
         query_type = "disjunctive"
         method = "bm25"
 
         start_time = time.time()
-        # Call the method with a sample query and check if it's processed correctly
+
         ranked_docs = self.query_processor.process_query(query, query_type, method)
         end_time = time.time()
 
-        doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
+        doc_ids = list(ranked_docs.keys())
 
         print(f"Retrieved in {end_time - start_time}")
-        # Print the documents along with their scores
+        # Print the document ids along with their scores
         for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
 
@@ -73,23 +74,23 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_conjunctive_query_bm25(self):
+        """Test of the processing of a conjunctive query with bm25 scoring."""
         query = "information retrieval"
         query_type = "conjunctive"
         method = "bm25"
 
         start_time = time.time()
-        # Call the method with a sample query and check if it's processed correctly
+
         ranked_docs = self.query_processor.process_query(query, query_type, method)
         end_time = time.time()
 
-        doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
+        doc_ids = list(ranked_docs.keys())
 
         print(f"Retrieved in {end_time - start_time}")
-        # Print the documents along with their scores
+        # Print the document ids along with their scores
         for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
 
-        # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
         self.assertGreater(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order
@@ -97,19 +98,20 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_disjunctive_query_bm25(self):
+        """Test of the processing of a disjunctive query with bm25 scoring."""
         query = "information retrieval"
         query_type = "disjunctive"
         method = "bm25"
 
         start_time = time.time()
-        # Call the method with a sample query and check if it's processed correctly
+
         ranked_docs = self.query_processor.process_query(query, query_type, method)
         end_time = time.time()
 
-        doc_ids = list(ranked_docs.keys())  # Get the list of doc IDs from the ranked_docs
+        doc_ids = list(ranked_docs.keys())
 
         print(f"Retrieved in {end_time - start_time}")
-        # Print the documents along with their scores
+        # Print the document ids along with their scores
         for doc_id in zip(doc_ids):
             print(f"Document ID: {doc_id}")
 
@@ -120,12 +122,14 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_fully_retrieved_documents(self):
+        """This method retrieves documents' text, in order to check that useful documents are
+        retrieved. It takes a bit longer because it has to directly access collection."""
         query = "where to eat pizza or pasta in rome"
         query_type = "disjunctive"
         method = "bm25"
 
         start_time = time.time()
-        # Call the method with a sample query and check if it's processed correctly
+
         ranked_docs = self.query_processor.process_query(query, query_type, method)
         end_time = time.time()
 
@@ -140,7 +144,6 @@ class TestQueryProcessor(unittest.TestCase):
             print(f"Document Text: {document}")
             print("-" * 40)  # Separator for readability
 
-        # Add checks based on your expected outcomes
         self.assertIsInstance(ranked_docs, dict)
         self.assertGreater(len(ranked_docs), 0)
         # Check if the documents are sorted by score in descending order
@@ -148,6 +151,7 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_empty_query(self):
+        """Test the response to an empty query with default settings."""
         query = ""
         query_type = "conjunctive"
         method = "tfidf"
@@ -158,6 +162,7 @@ class TestQueryProcessor(unittest.TestCase):
         self.assertEqual(ranked_docs, {})
 
     def test_invalid_query_type(self):
+        """Test the response to a query with an invalid query type."""
         query = "data mining"
         query_type = "invalid_query_type"
         method = "tfidf"
@@ -167,6 +172,7 @@ class TestQueryProcessor(unittest.TestCase):
             self.query_processor.process_query(query, query_type, method)
 
     def test_invalid_method(self):
+        """Test the response to a query with invalid scoring function."""
         query = "data mining"
         query_type = "conjunctive"
         method = "invalid_method"
@@ -174,17 +180,6 @@ class TestQueryProcessor(unittest.TestCase):
         # Assert that calling with an invalid scoring method raises a ValueError
         with self.assertRaises(ValueError):
             self.query_processor.process_query(query, query_type, method)
-
-    def test_ranking_order(self):
-        query = "data mining"
-        query_type = "conjunctive"
-        method = "tfidf"
-
-        ranked_docs = self.query_processor.process_query(query, query_type, method)
-
-        # Check that the documents are ordered by score in descending order
-        scores = list(ranked_docs.values())
-        self.assertEqual(scores, sorted(scores, reverse=True))
 
 
 if __name__ == "__main__":

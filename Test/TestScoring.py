@@ -8,7 +8,7 @@ from Query.Scoring import Scoring
 
 class TestScoring(unittest.TestCase):
     def setUp(self):
-        # Set up actual Lexicon and DocumentTable objects with real data
+        """Set up lexicon and document table before each test."""
         self.lexicon = Lexicon()
         self.document_table = DocumentTable()
 
@@ -31,10 +31,12 @@ class TestScoring(unittest.TestCase):
     def test_compute_tfidf(self):
         """Test the computation of TF-IDF score."""
         term = "term1"
-        payload = 2  # Example term frequency
-        # Expected IDF calculation (using provided formula)
+        payload = 2
+        # Calculation by hand
         idf = math.log(self.scoring.total_documents / self.lexicon.get_term_info(term))
         expected_tfidf = (1 + math.log(payload)) * idf
+
+        # Method's tfidf
         tfidf_score = self.scoring.compute_tfidf(term, payload)
         self.assertAlmostEqual(tfidf_score, expected_tfidf)
 
@@ -42,16 +44,18 @@ class TestScoring(unittest.TestCase):
         """Test the computation of BM25 score."""
         term = "term1"
         doc_id = 1
-        payload = 2  # Example term frequency
+        payload = 2
         k1 = 1.5
         b = 0.75
 
+        # Calculation by hand
         doc_length = self.document_table.get_document_length(doc_id)
         idf = math.log(self.scoring.total_documents / self.lexicon.get_term_info(term))
         numerator = payload
         denominator = payload + k1 * (1 - b + b * (doc_length / self.scoring.avg_doc_length))
         expected_bm25 = idf * (numerator / denominator)
 
+        # Method's bm25
         bm25_score = self.scoring.compute_bm25(term, doc_id, payload, k1, b)
         self.assertAlmostEqual(bm25_score, expected_bm25)
 

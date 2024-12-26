@@ -73,9 +73,11 @@ class Preprocessing:
         text = (unicodedata.normalize('NFKD', text).encode('ascii', 'ignore')
                 .decode('utf-8', 'ignore'))
 
-        # Remove HTML, script, and style content
-        text = Preprocessing.HTML_PATTERN.sub(' ', text)
+        # Remove script and style tags with their content
         text = Preprocessing.SCRIPT_STYLE_PATTERN.sub(' ', text)
+
+        # Remove all HTML tags and their content
+        text = re.sub(r'<[^>]+>', ' ', text)
 
         # Remove noise and URLs
         text = Preprocessing.NOISE_PATTERN.sub(' ', text)
@@ -91,26 +93,31 @@ class Preprocessing:
 
     def tokenize(self, text: str) -> List[str]:
         """
-        Tokenize text and remove remnants of URLs or invalid tokens.
+        Tokenize text, split words connected by punctuation, and remove numbers.
 
         Args:
             text(str): Text to tokenize.
 
         Returns:
-            List[str]: A list of tokens.
+            List[str]: A list of cleaned tokens.
         """
         if not text:
             return []
 
+        # Split text into tokens using non-word boundaries, preserving standalone words
+        tokens = re.split(r'\W+', text)
+
+        # Filter tokens based on rules:
+        # - Remove tokens shorter than the minimum word length
+        # - Exclude pure numbers
+        # - Ensure tokens contain at least one alphabetic character
         tokens = [
-            token for token in text.split()
+            token for token in tokens
             if len(token) >= self.min_word_length
-               and not token.isspace()
                and any(c.isalpha() for c in token)  # At least one letter
+               and not token.isdigit()  # Exclude pure numbers
         ]
 
-        # Additional URL fragment cleanup
-        tokens = [token for token in tokens if not self.URL_PATTERN.search(token)]
         return tokens
 
     def remove_stopwords(self, tokens: List[str]) -> List[str]:
