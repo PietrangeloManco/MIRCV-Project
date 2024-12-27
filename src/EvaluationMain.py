@@ -43,7 +43,7 @@ class EvaluationMain:
             (doc_id, query_id) pairs.
 
         Returns:
-            float: Non discounted cumulative gain.
+            float: Normalized discounted cumulative gain.
         """
         # This shouldn't happen as queries without judged docs were filtered out previously.
         judged_docs = {doc_id for q, doc_id in qrels.keys() if q == query_id}
@@ -90,7 +90,7 @@ class EvaluationMain:
             (doc_id, query_id) pairs.
 
         Returns:
-            float: Non discounted cumulative gain.
+            float: Normalized discounted cumulative gain.
         """
         query_id, query_text = query_tuple
         if isinstance(query_id, str):
