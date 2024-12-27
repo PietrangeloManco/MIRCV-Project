@@ -1,0 +1,4 @@
+InvertedIndex filter=lfs diff=lfs merge=lfs -text
+Lexicon filter=lfs diff=lfs merge=lfs -text
+DocumentTable filter=lfs diff=lfs merge=lfs -text
+collection.tar.gz filter=lfs diff=lfs merge=lfs -text
