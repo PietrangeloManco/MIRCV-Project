@@ -1,8 +1,8 @@
 import os
 import unittest
 
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from InvertedIndex.Merger import Merger  # Assuming the Merger class is in Merger.py
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.InvertedIndex.Merger import Merger  # Assuming the Merger class is in Merger.py
 from Utils.CompressionTools import CompressionTools
 
 

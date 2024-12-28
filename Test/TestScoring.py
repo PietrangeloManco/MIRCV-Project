@@ -1,8 +1,8 @@
 import math
 import unittest
 
-from DocumentTable.DocumentTable import DocumentTable
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.Lexicon.Lexicon import Lexicon
 from Query.Scoring import Scoring
 
 

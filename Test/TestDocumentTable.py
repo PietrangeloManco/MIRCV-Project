@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from DocumentTable.DocumentTable import DocumentTable
+from Index.DocumentTable.DocumentTable import DocumentTable
 
 
 class TestDocumentTable(unittest.TestCase):

@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Any, List
 
 from Utils.CompressionTools import CompressionTools
-from src.InvertedIndex.Posting import Posting
+from Index.InvertedIndex.Posting import Posting
 
 
 class InvertedIndex:

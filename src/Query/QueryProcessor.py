@@ -1,10 +1,10 @@
 from collections import defaultdict
 from typing import List, Dict
 
-from DocumentTable.DocumentTable import DocumentTable
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from InvertedIndex.Posting import Posting
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.InvertedIndex.Posting import Posting
+from Index.Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.Scoring import Scoring
 
