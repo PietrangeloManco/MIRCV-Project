@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 
 
 class TestCompressedInvertedIndex(unittest.TestCase):

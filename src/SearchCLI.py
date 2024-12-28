@@ -1,9 +1,9 @@
 import os
 import time
 
-from DocumentTable.DocumentTable import DocumentTable
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.QueryProcessor import QueryProcessor
 from Utils.Preprocessing import Preprocessing

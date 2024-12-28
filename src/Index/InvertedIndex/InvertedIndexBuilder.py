@@ -5,11 +5,11 @@ from typing import List, Optional
 import pandas as pd
 from pandas import DataFrame
 
-from DocumentTable.DocumentTable import DocumentTable
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from InvertedIndex.InvertedIndex import InvertedIndex
-from InvertedIndex.Merger import Merger
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.InvertedIndex.InvertedIndex import InvertedIndex
+from Index.InvertedIndex.Merger import Merger
+from Index.Lexicon.Lexicon import Lexicon
 from Utils.CollectionLoader import CollectionLoader
 from Utils.MemoryProfile import MemoryProfile
 from Utils.MemoryTrackingTools import MemoryTrackingTools

@@ -1,7 +1,7 @@
 import struct
 from typing import List
 
-from InvertedIndex.Posting import Posting
+from Index.InvertedIndex.Posting import Posting
 from Utils.CompressionTools import CompressionTools
 
 

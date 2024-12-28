@@ -2,11 +2,11 @@ import os
 import time
 import unittest
 
-from DocumentTable.DocumentTable import DocumentTable
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from InvertedIndex.InvertedIndexBuilder import InvertedIndexBuilder
-from InvertedIndex.Merger import Merger
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.InvertedIndex.InvertedIndexBuilder import InvertedIndexBuilder
+from Index.InvertedIndex.Merger import Merger
+from Index.Lexicon.Lexicon import Lexicon
 from Utils.CollectionLoader import CollectionLoader
 from Utils.Preprocessing import Preprocessing
 from Utils.config import RESOURCES_PATH

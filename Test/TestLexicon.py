@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from Lexicon import Lexicon
+from Index.Lexicon import Lexicon
 
 
 class TestLexicon(unittest.TestCase):

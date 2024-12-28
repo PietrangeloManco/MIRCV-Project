@@ -2,9 +2,9 @@ import os
 import time
 import unittest
 
-from DocumentTable.DocumentTable import DocumentTable
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.Lexicon.Lexicon import Lexicon
 from Query.QueryParser import QueryParser
 from Query.QueryProcessor import QueryProcessor
 from Utils.CollectionLoader import CollectionLoader
@@ -27,7 +27,7 @@ class TestQueryProcessor(unittest.TestCase):
 
     def test_conjunctive_query_tfidf(self):
         """Test of the processing of a conjunctive query with tfidf scoring."""
-        query = "information retrieval"
+        query = "best italian restaurants under 30 dollars"
         query_type = "conjunctive"
         method = "tfidf"
 
@@ -51,7 +51,7 @@ class TestQueryProcessor(unittest.TestCase):
 
     def test_disjunctive_query_tfidf(self):
         """Test of the processing of a disjunctive query with tfidf scoring."""
-        query = "information retrieval"
+        query = "best italian restaurants under 30 dollars"
         query_type = "disjunctive"
         method = "bm25"
 
@@ -75,7 +75,7 @@ class TestQueryProcessor(unittest.TestCase):
 
     def test_conjunctive_query_bm25(self):
         """Test of the processing of a conjunctive query with bm25 scoring."""
-        query = "information retrieval"
+        query = "best data mining algorithms"
         query_type = "conjunctive"
         method = "bm25"
 
@@ -99,7 +99,7 @@ class TestQueryProcessor(unittest.TestCase):
 
     def test_disjunctive_query_bm25(self):
         """Test of the processing of a disjunctive query with bm25 scoring."""
-        query = "information retrieval"
+        query = "best data mining algorithms"
         query_type = "disjunctive"
         method = "bm25"
 

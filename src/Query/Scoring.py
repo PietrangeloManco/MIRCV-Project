@@ -1,7 +1,7 @@
 import math
 
-from DocumentTable.DocumentTable import DocumentTable
-from Lexicon.Lexicon import Lexicon
+from Index.DocumentTable.DocumentTable import DocumentTable
+from Index.Lexicon.Lexicon import Lexicon
 
 
 class Scoring:

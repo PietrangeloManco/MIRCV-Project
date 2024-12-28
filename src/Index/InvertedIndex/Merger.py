@@ -2,7 +2,7 @@ import concurrent.futures
 from collections import defaultdict
 from typing import List
 
-from InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
+from Index.InvertedIndex.CompressedInvertedIndex import CompressedInvertedIndex
 from Utils.CompressionTools import CompressionTools
 
 
