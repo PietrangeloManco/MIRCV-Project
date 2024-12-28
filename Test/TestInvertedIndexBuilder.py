@@ -154,7 +154,7 @@ class TestInvertedIndexBuilder(unittest.TestCase):
             # Basic validation
             self.assertGreater(len(terms), 0, "Partial index should contain terms")
 
-            # Validate document count
+            # Validate documents count
             all_doc_ids = set()
             for term in terms:
                 postings = index.get_uncompressed_postings(term)
