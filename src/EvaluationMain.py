@@ -183,7 +183,7 @@ class EvaluationMain:
     @staticmethod
     def load_queries(queries_file_path: str) -> List[Tuple[int, str]]:
         """
-        Loads the benchmark queries file into a list of queries.
+        Loads the benchmark query file into a list of queries.
 
         Args:
             queries_file_path(str): Path of the benchmark queries file.
